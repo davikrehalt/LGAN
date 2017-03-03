@@ -4,7 +4,7 @@ import six.moves.cPickle as pickle
 import theano
 import theano.tensor as T
 import lasagne
-from load_mnist import load_data_mnist
+from load_data import load_data_mnist
 import timeit
 
 def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
