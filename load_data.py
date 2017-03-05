@@ -35,21 +35,17 @@ def load_mnist():
             train_set, valid_set, test_set = pickle.load(f, encoding='latin1')
         except:
             train_set, valid_set, test_set = pickle.load(f)
-    def shared_dataset(data_xy, borrow=True):
+    def one_hot(data_xy, borrow=True):
         data_x, data_y = data_xy
-        shared_x = theano.shared(np.asarray(data_x,
-                                               dtype=theano.config.floatX),
-                                 borrow=borrow)
+        data_x=np.asarray(data_x, dtype=theano.config.floatX)
         one_hot_y = np.zeros((data_y.shape[0],10))
         one_hot_y[range(data_y.shape[0]),data_y]=1.0
-        shared_y = theano.shared(np.asarray(one_hot_y,
-                                               dtype=theano.config.floatX),
-                                 borrow=borrow)
-        return shared_x, shared_y 
+        one_hot_y=np.asarray(one_hot_y, dtype=theano.config.floatX)
+        return data_x, one_hot_y 
 
-    test_set_x, test_set_y = shared_dataset(test_set)
-    valid_set_x, valid_set_y = shared_dataset(valid_set)
-    train_set_x, train_set_y = shared_dataset(train_set)
+    test_set_x, test_set_y = one_hot(test_set)
+    valid_set_x, valid_set_y = one_hot(valid_set)
+    train_set_x, train_set_y = one_hot(train_set)
 
     rval = [(train_set_x, train_set_y), (valid_set_x, valid_set_y),
             (test_set_x, test_set_y)]
