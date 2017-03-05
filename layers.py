@@ -7,8 +7,11 @@ from theano.tensor.nnet import conv2d
 from ops import tmax,tmin,tbox
 
 class Lipshitz_Layer(lasagne.layers.Layer):
-    def __init__(self, incoming, n_in, n_max, n_out, W=None, b=None,init=0,**kwargs):
+    def __init__(self, incoming, n_out, W=None, b=None,init=0,**kwargs):
         super(Lipshitz_Layer,self).__init__(incoming,**kwargs)
+        n_max=2
+        n_in=self.input_shape[1]
+        self.n_out=n_out
         self.n_params=n_max*n_out*(1+n_in)
         if W is None:
             if init == 0:
@@ -29,15 +32,25 @@ class Lipshitz_Layer(lasagne.layers.Layer):
         self.b = self.add_param(b,(n_max,n_out))
         self.pre_gradient_norms=T.sum(abs(self.W),axis=1)
         self.gradient_norms=tmax(self.pre_gradient_norms,1.0)
-        self.scale_W = self.W / self.gradient_norms.dimshuffle(0,'x',1)
-        self.max_gradient=T.max(self.pre_gradient_norms)
+        self.rescale_W = self.W / self.gradient_norms.dimshuffle(0,'x',1)
+        try:
+            self.rescale=self.input_layer.rescale
+        except NameError:
+            self.rescale=[]
+        self.rescale.append((self.W,self.rescale_W))
+        try:
+            self.max_gradient=self.input_layer.max_gradient
+        except NameError:
+            self.max_gradient=1.0
+        self.max_gradient*=T.max(self.pre_gradient_norms)
+
     def get_output_for(self,input,**kwargs):
         return (T.dot(input,self.W) + self.b).max(axis=1)
     def get_output_shape_for(self,input_shape):
-        return (input_shape[0],n_out)
+        return (input_shape[0],self.n_out)
 
 class LipConvLayer(lasagne.layers.Layer):
-    def __init__(self,incoming,shape,W=None,b=None,init=0,**kwargs):
+    def __init__(self,incoming,n_out,filter_size,W=None,b=None,init=0,**kwargs):
         #shape =(
         #        height(0),width(1),
         #        filter height(2), filter width(3)
@@ -47,7 +60,11 @@ class LipConvLayer(lasagne.layers.Layer):
 
         #only implemented "valid" filter
         super(LipConvLayer,self).__init__(incoming,**kwargs)
+        shape=[self.input_shape[2],self.input_shape[3],
+               filter_size[0],filter_size[1],
+               self.input_shape[0],2,n_out]
         n_in = shape[2]*shape[3]*shape[4]
+        self.n_out=n_out
         self.filter_shape = [shape[5],shape[6],shape[4],shape[2],shape[3]]
         self.bias_shape   = [shape[5],shape[6]]
         self.shape=shape
@@ -70,8 +87,18 @@ class LipConvLayer(lasagne.layers.Layer):
         self.b = self.add_param(b,self.bias_shape)
         self.pre_gradient_norms=T.sum(abs(self.W),axis=(2,3,4))
         self.gradient_norms=tmax(self.pre_gradient_norms,1.0)
-        self.max_gradient=T.max(self.pre_gradient_norms)
-        self.scale_W = self.W / self.gradient_norms.dimshuffle(0,1,'x','x','x')
+        self.rescale_W = self.W / self.gradient_norms.dimshuffle(0,1,'x','x','x')
+        try:
+            self.rescale=self.input_layer.rescale
+        except NameError:
+            self.rescale=[]
+        self.rescale.append((self.W,self.rescale_W))
+        try:
+            self.max_gradient=self.input_layer.max_gradient
+        except NameError:
+            self.max_gradient=1.0
+        self.max_gradient*=T.max(self.pre_gradient_norms)
+
     def get_output_for(self,input,**kwargs)
         image_shape  = [input.shape[0],self.shape[4],self.shape[0],self.shape[1]]
         intermediate=[]
@@ -91,7 +118,7 @@ class LipConvLayer(lasagne.layers.Layer):
                 self.shape[2]-self.shape[4]+1]
 
 class Subpixel_Layer(lasagne.layers.Layer):
-    def __init__(self,incoming,shape,W=None,b=None,init=1):
+    def __init__(self,incoming,filter_size,multiplier,n_out,W=None,b=None,init=1):
         #shape =(
         #        height(0),width(1)
         #        filter height(2), filter width(3)
@@ -103,6 +130,9 @@ class Subpixel_Layer(lasagne.layers.Layer):
         #only implements "valid" filter
 
         super(Subpixel_Layer,self).__init__(incoming,**kwargs)
+        shape=[self.input_shape[2],self.input_shape[3],
+               filter_size[0],filter_size[1],multiplier,
+               self.input_shape[0],2,n_out]
         n_in = shape[3]*shape[4]*shape[6]
         self.filter_shape = [shape[6],shape[4]*shape[4]*shape[7],shape[5],shape[2],shape[3]]
         self.bias_shape   = [shape[6],shape[4]*shape[4]*shape[7]]
@@ -126,9 +156,17 @@ class Subpixel_Layer(lasagne.layers.Layer):
         self.b = self.add_param(b,self.bias_shape)
         self.pre_gradient_norms=T.sum(abs(self.W),axis=(2,3,4))
         self.gradient_norms=tmax(self.pre_gradient_norms,1.0)
-        self.max_gradient=T.max(self.pre_gradient_norms)
+        try:
+            self.max_gradient=self.input_layer.max_gradient
+        except NameError:
+            self.max_gradient=1.0
+        self.max_gradient*=T.max(self.pre_gradient_norms)
+
     def get_output_for(self,input,**kwargs):
         image_shape  = [input.shape[0],self.shape[5],self.shape[0],self.shape[1]]
+        output_shape = [input.shape[0],self.shape[7],
+                        self.shape[4]*(self.shape[0]-self.shape[2]+1),
+                        self.shape[4]*(self.shape[1]-self.shape[3]+1)]
         intermediate=[]
         for i in range(self.shape[6]):
             conv_out=conv2d(
