@@ -7,8 +7,12 @@ from theano.tensor.nnet import conv2d
 from ops import tmax,tmin,tbox
 
 class Lipshitz_Layer(lasagne.layers.Layer):
-    def __init__(self, incoming, n_in, n_max, n_out, W=None, b=None,init=0,**kwargs):
+    def __init__(self, incoming, n_in, n_max, n_out, W=None, b=None,init=0,nonlinearity=None,**kwargs):
         super(Lipshitz_Layer,self).__init__(incoming,**kwargs)
+        if nonlinearity is None:
+            self.nonlinearity = lasagne.nonlinearities.identity
+        else:
+            self.nonlinearity = nonlinearity
         self.n_params=n_max*n_out*(1+n_in)
         if W is None:
             if init == 0:
@@ -32,12 +36,12 @@ class Lipshitz_Layer(lasagne.layers.Layer):
         self.scale_W = self.W / self.gradient_norms.dimshuffle(0,'x',1)
         self.max_gradient=T.max(self.pre_gradient_norms)
     def get_output_for(self,input,**kwargs):
-        return (T.dot(input,self.W) + self.b).max(axis=1)
+        return self.nonlinearity((T.dot(input,self.W) + self.b).max(axis=1))
     def get_output_shape_for(self,input_shape):
         return (input_shape[0],n_out)
 
 class LipConvLayer(lasagne.layers.Layer):
-    def __init__(self,incoming,shape,W=None,b=None,init=0,**kwargs):
+    def __init__(self,incoming,shape,W=None,b=None,init=0,nonlinearity=None,**kwargs):
         #shape =(
         #        height(0),width(1),
         #        filter height(2), filter width(3)
@@ -47,6 +51,10 @@ class LipConvLayer(lasagne.layers.Layer):
 
         #only implemented "valid" filter
         super(LipConvLayer,self).__init__(incoming,**kwargs)
+        if nonlinearity is None:
+            self.nonlinearity = lasagne.nonlinearities.identity
+        else:
+            self.nonlinearity = nonlinearity
         n_in = shape[2]*shape[3]*shape[4]
         self.filter_shape = [shape[5],shape[6],shape[4],shape[2],shape[3]]
         self.bias_shape   = [shape[5],shape[6]]
@@ -72,7 +80,7 @@ class LipConvLayer(lasagne.layers.Layer):
         self.gradient_norms=tmax(self.pre_gradient_norms,1.0)
         self.max_gradient=T.max(self.pre_gradient_norms)
         self.scale_W = self.W / self.gradient_norms.dimshuffle(0,1,'x','x','x')
-    def get_output_for(self,input,**kwargs)
+    def get_output_for(self,input,**kwargs):
         image_shape  = [input.shape[0],self.shape[4],self.shape[0],self.shape[1]]
         intermediate=[]
         for i in range(self.shape[5]):
@@ -84,14 +92,14 @@ class LipConvLayer(lasagne.layers.Layer):
                 input_shape=image_shape
             )
             intermediate.append(conv_out+self.b[i].dimshuffle('x',0,'x','x'))
-        return T.max(intermediate,axis=0)
+        return self.nonlinearity(T.max(intermediate,axis=0))
     def get_output_shape_for(self,input_shape):
         return [input_shape[0],self.shape[6],
                 self.shape[1]-self.shape[3]+1,
                 self.shape[2]-self.shape[4]+1]
 
 class Subpixel_Layer(lasagne.layers.Layer):
-    def __init__(self,incoming,shape,W=None,b=None,init=1):
+    def __init__(self,incoming,shape,W=None,b=None,init=1,nonlinearity=None):
         #shape =(
         #        height(0),width(1)
         #        filter height(2), filter width(3)
@@ -103,6 +111,10 @@ class Subpixel_Layer(lasagne.layers.Layer):
         #only implements "valid" filter
 
         super(Subpixel_Layer,self).__init__(incoming,**kwargs)
+        if nonlinearity is None:
+            self.nonlinearity = lasagne.nonlinearities.identity
+        else:
+            self.nonlinearity = nonlinearity
         n_in = shape[3]*shape[4]*shape[6]
         self.filter_shape = [shape[6],shape[4]*shape[4]*shape[7],shape[5],shape[2],shape[3]]
         self.bias_shape   = [shape[6],shape[4]*shape[4]*shape[7]]
@@ -147,7 +159,7 @@ class Subpixel_Layer(lasagne.layers.Layer):
             for y in range(r):
                 output=T.set_subtensor(
                     output[:,:,x::r,y::r],pre_output[:,r*x+y::r*r,:,:])
-        return output
+        return self.nonlinearity(output)
 
     def get_output_shape_for(self,input_shape):
         return [input_shape[0],self.shape[7],
