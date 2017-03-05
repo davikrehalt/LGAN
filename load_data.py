@@ -9,6 +9,7 @@ import theano.tensor as T
 
 __docformat__ = 'restructedtext en'
 def load_mnist():
+    print('Loading MNIST')
     dataset='mnist.pkl.gz'
     data_dir, data_file = os.path.split(dataset)
     if not os.path.isfile(dataset):
