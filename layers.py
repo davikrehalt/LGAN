@@ -7,7 +7,7 @@ from theano.tensor.nnet import conv2d
 from ops import tmax,tmin,tbox
 
 class Lipshitz_Layer(lasagne.layers.Layer):
-    def __init__(self, incoming, n_out, W=None, b=None,init=0,**kwargs):
+    def __init__(self, incoming, n_out, W=None, b=None,init=0,nonlinearity=None,**kwargs):
         super(Lipshitz_Layer,self).__init__(incoming,**kwargs)
         if nonlinearity is None:
             self.nonlinearity = lasagne.nonlinearities.identity
@@ -39,12 +39,12 @@ class Lipshitz_Layer(lasagne.layers.Layer):
         self.rescale_W = self.W / self.gradient_norms.dimshuffle(0,'x',1)
         try:
             self.rescale=self.input_layer.rescale
-        except NameError:
+        except AttributeError:
             self.rescale=[]
         self.rescale.append((self.W,self.rescale_W))
         try:
             self.max_gradient=self.input_layer.max_gradient
-        except NameError:
+        except AttributeError:
             self.max_gradient=1.0
         self.max_gradient*=T.max(self.pre_gradient_norms)
 
@@ -54,7 +54,7 @@ class Lipshitz_Layer(lasagne.layers.Layer):
         return (input_shape[0],self.n_out)
 
 class LipConvLayer(lasagne.layers.Layer):
-    def __init__(self,incoming,n_out,filter_size,W=None,b=None,init=0,**kwargs):
+    def __init__(self,incoming,n_out,filter_size,W=None,b=None,init=0,nonlinearity=None,**kwargs):
         #shape =(
         #        height(0),width(1),
         #        filter height(2), filter width(3)
@@ -70,7 +70,7 @@ class LipConvLayer(lasagne.layers.Layer):
             self.nonlinearity = nonlinearity
         shape=[self.input_shape[2],self.input_shape[3],
                filter_size[0],filter_size[1],
-               self.input_shape[0],2,n_out]
+               self.input_shape[1],2,n_out]
         n_in = shape[2]*shape[3]*shape[4]
         self.n_out=n_out
         self.filter_shape = [shape[5],shape[6],shape[4],shape[2],shape[3]]
@@ -98,17 +98,16 @@ class LipConvLayer(lasagne.layers.Layer):
         self.rescale_W = self.W / self.gradient_norms.dimshuffle(0,1,'x','x','x')
         try:
             self.rescale=self.input_layer.rescale
-        except NameError:
+        except AttributeError:
             self.rescale=[]
         self.rescale.append((self.W,self.rescale_W))
         try:
             self.max_gradient=self.input_layer.max_gradient
-        except NameError:
+        except AttributeError:
             self.max_gradient=1.0
         self.max_gradient*=T.max(self.pre_gradient_norms)
 
-    def get_output_for(self,input,**kwargs)
-        image_shape  = [input.shape[0],self.shape[4],self.shape[0],self.shape[1]]
+    def get_output_for(self,input,**kwargs):
         intermediate=[]
         for i in range(self.shape[5]):
             conv_out=conv2d(
@@ -116,17 +115,17 @@ class LipConvLayer(lasagne.layers.Layer):
                 filters=self.W[i],
                 border_mode='valid',
                 filter_shape=self.filter_shape[1:],
-                input_shape=image_shape
+                input_shape=self.input_shape
             )
             intermediate.append(conv_out+self.b[i].dimshuffle('x',0,'x','x'))
         return self.nonlinearity(T.max(intermediate,axis=0))
     def get_output_shape_for(self,input_shape):
         return [input_shape[0],self.shape[6],
-                self.shape[1]-self.shape[3]+1,
-                self.shape[2]-self.shape[4]+1]
+                self.shape[0]-self.shape[2]+1,
+                self.shape[1]-self.shape[3]+1]
 
 class Subpixel_Layer(lasagne.layers.Layer):
-    def __init__(self,incoming,filter_size,multiplier,n_out,W=None,b=None,init=1):
+    def __init__(self,incoming,filter_size,multiplier,n_out,W=None,b=None,init=1,nonlinearity=None):
         #shape =(
         #        height(0),width(1)
         #        filter height(2), filter width(3)
@@ -170,7 +169,7 @@ class Subpixel_Layer(lasagne.layers.Layer):
         self.gradient_norms=tmax(self.pre_gradient_norms,1.0)
         try:
             self.max_gradient=self.input_layer.max_gradient
-        except NameError:
+        except AttributeError:
             self.max_gradient=1.0
         self.max_gradient*=T.max(self.pre_gradient_norms)
 

@@ -43,12 +43,12 @@ def build_maxout_cnn(input_var):
     from layers import Lipshitz_Layer,LipConvLayer
     network = InputLayer(shape=(None, 784),input_var=input_var)
     network = ReshapeLayer(network, (-1, 1, 28, 28))
-    network = LipConvLayer(network, n_out=32, filter_size=(5, 5))
-    network = LipConvLayer(network, n_out=32, filter_size=(5, 5))
-    network = LipConvLayer(network, n_out=32, filter_size=(5, 5))
+    network = LipConvLayer(network, n_out=32, filter_size=(5, 5), init=1)
+    network = LipConvLayer(network, n_out=32, filter_size=(5, 5), init=1)
+    network = LipConvLayer(network, n_out=32, filter_size=(5, 5), init=1)
     network = FlattenLayer(network)
-    network = Lipshitz_Layer(network, n_out=256)
-    network = Lipshitz_Layer(network, n_out=10, nonlinearity=lasagne.nonlinearity.rectify)
+    network = Lipshitz_Layer(network, n_out=256, init=1)
+    network = Lipshitz_Layer(network, n_out=10, init=1, nonlinearity=lasagne.nonlinearities.softmax)
     return network
 
 def main(model='standard',n_epochs=100):
@@ -67,6 +67,7 @@ def main(model='standard',n_epochs=100):
         network=build_standard_cnn(input_var)
     elif model == 'maxout':
         network=build_maxout_cnn(input_var)
+        max_gradient=theano.function([],network.max_gradient)
 
     prediction = lasagne.layers.get_output(network)
     loss = lasagne.objectives.categorical_crossentropy(
@@ -74,8 +75,7 @@ def main(model='standard',n_epochs=100):
     loss = loss.mean()
 
     params = lasagne.layers.get_all_params(network, trainable=True)
-    updates = lasagne.updates.nesterov_momentum(
-            loss, params, learning_rate=0.01, momentum=0.9)
+    updates = lasagne.updates.adam(loss, params)
 
     test_prediction = lasagne.layers.get_output(network, deterministic=True)
     test_loss = lasagne.objectives.categorical_crossentropy(
@@ -87,6 +87,7 @@ def main(model='standard',n_epochs=100):
     train_fn = theano.function([input_var, target_var], loss, updates=updates)
     val_fn = theano.function([input_var, target_var], [test_loss, test_acc])
 
+    print('Training')
     for epoch in range(n_epochs):
         train_err = 0
         train_batches = 0
@@ -112,6 +113,8 @@ def main(model='standard',n_epochs=100):
         print("  validation loss:\t\t{:.6f}".format(val_err / val_batches))
         print("  validation accuracy:\t\t{:.2f} %".format(
             val_acc / val_batches * 100))
+        if model == "maxout":
+            print("  maximum gradient:\t\t{:.2f}".format(1.0*max_gradient()))
     test_err = 0
     test_acc = 0
     test_batches = 0
