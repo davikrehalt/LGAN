@@ -51,7 +51,7 @@ def main(model='standard',n_epochs=100):
     input_var = T.matrix('inputs')
     target_var = T.matrix('targets')
 
-    print("Building model and compiling functions...")
+    print("Building model")
     if model == 'standard':
         network=build_standard_cnn(input_var)
     elif model == 'maxout':
@@ -73,6 +73,7 @@ def main(model='standard',n_epochs=100):
     test_acc = T.mean(T.eq(T.argmax(test_prediction, axis=1), T.argmax(target_var,axis=1)),
                       dtype=theano.config.floatX)
 
+    print("Compiling Functions")
     train_fn = theano.function([input_var, target_var], loss, updates=updates)
     val_fn = theano.function([input_var, target_var], [test_loss, test_acc])
 

@@ -27,6 +27,7 @@ def build_generator(input_var=None,use_batch_norm=True):
         layer = Subpixel_Layer(layer, 16, (3,3), 2)
         layer = Subpixel_Layer(layer, 8, (3,3), 2)
         layer = LipConvLayer(layer,1,(9,9),init=1)
+        layer = ReshapeLayer(layer, (-1, 784))
     print ("Generator output:", layer.output_shape)
     return layer
 
@@ -35,15 +36,14 @@ def build_discriminator(input_var=None,use_batch_norm=True):
                                 FlattenLayer,batch_norm)
     from layers import Lipshitz_Layer,LipConvLayer
     layer = InputLayer(shape=(None, 784),input_var=input_var)
-    layer = ReshapeLayer(network, (-1, 1, 28, 28))
-    network = FlattenLayer(network)
+    layer = ReshapeLayer(layer, (-1, 1, 28, 28))
     if use_batch_norm:
         raise NotImplementedError
     else:
         layer = LipConvLayer(layer,32, (5, 5), init=1)
         layer = LipConvLayer(layer,32, (5, 5), init=1)
         layer = LipConvLayer(layer,32, (5, 5), init=1)
-        layer = FlattenLayer(network)
+        layer = FlattenLayer(layer)
         layer = Lipshitz_Layer(layer, 1024)
         layer = Lipshitz_Layer(layer,1,nonlinearity=None)
 
@@ -51,7 +51,7 @@ def build_discriminator(input_var=None,use_batch_norm=True):
     return layer
 
 
-def main(num_epochs=200,model='standard',batch_norm=True):
+def main(num_epochs=200,batch_norm=True):
     print('Loading data')
     datasets = load_mnist()
 
@@ -62,10 +62,9 @@ def main(num_epochs=200,model='standard',batch_norm=True):
     input_var = T.matrix('inputs')
     random_var = T.matrix('random')
 
-    print("Building model and compiling functions...")
-    if model == 'standard':
-        generator = build_standard_generator(random_var,batch_norm)
-        discriminator = build_standard_discriminator(input_var,batch_norm)
+    print("Building model")
+    generator = build_generator(random_var,batch_norm)
+    discriminator = build_discriminator(input_var,batch_norm)
 
     real_out = lasagne.layers.get_output(discriminator)
     fake_out = lasagne.layers.get_output(discriminator,
@@ -79,7 +78,7 @@ def main(num_epochs=200,model='standard',batch_norm=True):
 
     generator_updates = lasagne.updates.rmsprop(generator_loss, generator_params)
     discriminator.updates = lasagne.updates.rmsprop(discriminator_loss, discriminator_params)
-
+    print("Compiling functions")
     generator_train_fn = theano.function([random_var],
                                generator_loss,
                                updates=generator_updates)
