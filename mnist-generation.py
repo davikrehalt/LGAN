@@ -92,7 +92,8 @@ def main(num_epochs=200,model='standard'):
         # Then we print the results for this epoch:
         print("Epoch {} of {} took {:.3f}s".format(
             epoch + 1, num_epochs, time.time() - start_time))
-        print("  training loss:\t\t{}".format(train_err / train_batches))
+        print("  generator loss:\t\t{}".format(generator_err / train_batches))
+        print("  discriminator loss:\t\t{}".format(discriminator_err / train_batches))
 
         # And finally, we plot some generated data
         samples = gen_fn(lasagne.utils.floatX(np.random.rand(42, 100)))
