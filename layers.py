@@ -120,12 +120,12 @@ class LipConvLayer(lasagne.layers.Layer):
             intermediate.append(conv_out+self.b[i].dimshuffle('x',0,'x','x'))
         return self.nonlinearity(T.max(intermediate,axis=0))
     def get_output_shape_for(self,input_shape):
-        return [input_shape[0],self.shape[6],
+        return (input_shape[0],self.shape[6],
                 self.shape[0]-self.shape[2]+1,
-                self.shape[1]-self.shape[3]+1]
+                self.shape[1]-self.shape[3]+1)
 
 class Subpixel_Layer(lasagne.layers.Layer):
-    def __init__(self,incoming,n_out,filter_size,multiplier,W=None,b=None,init=1,nonlinearity=None):
+    def __init__(self,incoming,n_out,filter_size,multiplier,W=None,b=None,init=1,nonlinearity=None,**kwargs):
         #shape =(
         #        height(0),width(1)
         #        filter height(2), filter width(3)
@@ -143,12 +143,12 @@ class Subpixel_Layer(lasagne.layers.Layer):
             self.nonlinearity = nonlinearity
         shape=[self.input_shape[2],self.input_shape[3],
                filter_size[0],filter_size[1],multiplier,
-               self.input_shape[0],2,n_out]
+               self.input_shape[1],2,n_out]
         n_in = shape[3]*shape[4]*shape[6]
         self.filter_shape = [shape[6],shape[4]*shape[4]*shape[7],shape[5],shape[2],shape[3]]
         self.bias_shape   = [shape[6],shape[4]*shape[4]*shape[7]]
         self.shape=shape
-        self.n_params=np.prod(filter_shape)+np.prod(bias_shape)
+        self.n_params=np.prod(self.filter_shape)+np.prod(self.bias_shape)
         if W is None:
             if init == 0:
                 min_value = -1.0 / n_in
@@ -199,6 +199,6 @@ class Subpixel_Layer(lasagne.layers.Layer):
         return self.nonlinearity(output)
 
     def get_output_shape_for(self,input_shape):
-        return [input_shape[0],self.shape[7],
+        return (input_shape[0],self.shape[7],
                 self.shape[4]*(self.shape[0]-self.shape[2]+1),
-                self.shape[4]*(self.shape[1]-self.shape[3]+1)]
+                self.shape[4]*(self.shape[1]-self.shape[3]+1))
