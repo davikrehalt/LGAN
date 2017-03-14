@@ -12,31 +12,49 @@ def iterate_minibatches(inputs, targets, batchsize):
         yield inputs[excerpt], targets[excerpt]
 
 
-def build_standard_generator(input_var=None):
+def build_generator(input_var=None,use_batch_norm=True):
     from lasagne.layers import (InputLayer, ReshapeLayer,
-                                DenseLayer, batch_norm, DilatedConv2DLayer)
+                                batch_norm)
     layer = InputLayer(shape=(None, 100), input_var=input_var)
-    layer = batch_norm(DenseLayer(layer, 1024))
-    layer = batch_norm(DenseLayer(layer, 128*7*7))
-    layer = ReshapeLayer(layer, (-1, 128, 7, 7))
-    layer = batch_norm(DilatedConv2DLayer(layer, 64, 5, dilation=2))
-    layer = DilatedConv2DLayer(layer, 1, 5, dilation=2)
+    if use_batch_norm:
+        layer = batch_norm(DenseLayer(layer, 1024))
+        layer = batch_norm(DenseLayer(layer, 128*7*7))
+        layer = ReshapeLayer(layer, (-1, 128, 7, 7))
+        layer = batch_norm(DilatedConv2DLayer(layer, 64, 5, dilation=2))
+        layer = DilatedConv2DLayer(layer, 1, 5, dilation=2)
+    else:
+        layer = DenseLayer(layer, 1024)
+        print ("Generator output:", layer.output_shape)
+        layer = DenseLayer(layer, 128*7*7)
+        print ("Generator output:", layer.output_shape)
+        layer = ReshapeLayer(layer, (-1, 128, 7, 7))
+        print ("Generator output:", layer.output_shape)
+        layer = DilatedConv2DLayer(layer, 64, 5, dilation=2)
+        print ("Generator output:", layer.output_shape)
+        layer = DilatedConv2DLayer(layer, 1, 5, dilation=2)
     print ("Generator output:", layer.output_shape)
     return layer
 
-def build_standard_discriminator(input_var=None):
-    from lasagne.layers import (InputLayer, Conv2DLayer, ReshapeLayer,
-                                DenseLayer, batch_norm)
+def build_discriminator(input_var=None,use_batch_norm=True):
+    from lasagne.layers import (InputLayer, ReshapeLayer,
+                                batch_norm)
     layer = InputLayer(shape=(None, 1, 28, 28), input_var=input_var)
-    layer = batch_norm(Conv2DLayer(layer, 64, 5))
-    layer = batch_norm(Conv2DLayer(layer, 128, 5))
-    layer = batch_norm(DenseLayer(layer, 1024))
-    layer = DenseLayer(layer,1,nonlinearity=None)
+    if use_batch_norm:
+        layer = batch_norm(Conv2DLayer(layer, 64, 5))
+        layer = batch_norm(Conv2DLayer(layer, 128, 5))
+        layer = batch_norm(DenseLayer(layer, 1024))
+        layer = DenseLayer(layer,1,nonlinearity=None)
+    else:
+        layer = Conv2DLayer(layer, 64, 5)
+        layer = Conv2DLayer(layer, 128, 5)
+        layer = DenseLayer(layer, 1024)
+        layer = DenseLayer(layer,1,nonlinearity=None)
+
     print ("Discriminator output:", layer.output_shape)
     return layer
 
 
-def main(num_epochs=200,model='standard'):
+def main(num_epochs=200,model='standard',batch_norm=True):
     print('Loading data')
     datasets = load_mnist()
 
@@ -49,8 +67,8 @@ def main(num_epochs=200,model='standard'):
 
     print("Building model and compiling functions...")
     if model == 'standard':
-        generator = build_standard_generator(random_var)
-        discriminator = build_standard_discriminator(input_var)
+        generator = build_standard_generator(random_var,batch_norm)
+        discriminator = build_standard_discriminator(input_var,batch_norm)
 
     real_out = lasagne.layers.get_output(discriminator)
     fake_out = lasagne.layers.get_output(discriminator,
@@ -115,4 +133,4 @@ def main(num_epochs=200,model='standard'):
 
 
 if __name__ == '__main__':
-    main()
+    main(batch_norm=False)
