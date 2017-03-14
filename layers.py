@@ -125,7 +125,7 @@ class LipConvLayer(lasagne.layers.Layer):
                 self.shape[1]-self.shape[3]+1]
 
 class Subpixel_Layer(lasagne.layers.Layer):
-    def __init__(self,incoming,filter_size,multiplier,n_out,W=None,b=None,init=1,nonlinearity=None):
+    def __init__(self,incoming,n_out,filter_size,multiplier,W=None,b=None,init=1,nonlinearity=None):
         #shape =(
         #        height(0),width(1)
         #        filter height(2), filter width(3)

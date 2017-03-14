@@ -22,7 +22,7 @@ def build_standard_cnn(input_var):
     network = Conv2DLayer(network, 32, 5)
     network = FlattenLayer(network)
     network = DenseLayer(network, 256)
-    network = DenseLayer( network, 10,
+    network = DenseLayer(network, 10,
             nonlinearity=lasagne.nonlinearities.softmax)
     return network
 
@@ -31,12 +31,13 @@ def build_maxout_cnn(input_var):
     from layers import Lipshitz_Layer,LipConvLayer
     network = InputLayer(shape=(None, 784),input_var=input_var)
     network = ReshapeLayer(network, (-1, 1, 28, 28))
-    network = LipConvLayer(network, n_out=32, filter_size=(5, 5), init=1)
-    network = LipConvLayer(network, n_out=32, filter_size=(5, 5), init=1)
-    network = LipConvLayer(network, n_out=32, filter_size=(5, 5), init=1)
+    network = LipConvLayer(network,32, (5, 5), init=1)
+    network = LipConvLayer(network,32, (5, 5), init=1)
+    network = LipConvLayer(network,32, (5, 5), init=1)
     network = FlattenLayer(network)
-    network = Lipshitz_Layer(network, n_out=256, init=1)
-    network = Lipshitz_Layer(network, n_out=10, init=1, nonlinearity=lasagne.nonlinearities.softmax)
+    network = Lipshitz_Layer(network, 256, init=1)
+    network = Lipshitz_Layer(network, 10, init=1,
+                             nonlinearity=lasagne.nonlinearities.softmax)
     return network
 
 def main(model='standard',n_epochs=100):
