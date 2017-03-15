@@ -27,7 +27,8 @@ def build_generator(input_var=None,use_batch_norm=True):
         layer = Subpixel_Layer(layer, 32, (3,3), 2)
         layer = Subpixel_Layer(layer, 16, (3,3), 2)
         layer = Subpixel_Layer(layer, 8, (3,3), 2)
-        layer = LipConvLayer(layer,1,(9,9),init=1,nonlinearity=sigmoid)
+        layer = LipConvLayer(layer,1,(9,9),init=1,
+            nonlinearity=lasagne.nonlinearities.sigmoid)
         layer = ReshapeLayer(layer, (-1, 784))
     print ("Generator output:", layer.output_shape)
     return layer
@@ -40,17 +41,11 @@ def build_discriminator(input_var=None,use_batch_norm=True):
     if use_batch_norm:
         raise NotImplementedError
     else:
-        '''
         layer = ReshapeLayer(layer, (-1, 1, 28, 28))
         layer = LipConvLayer(layer,128, (5, 5))
         layer = LipConvLayer(layer,64, (5, 5))
         layer = LipConvLayer(layer,32, (5, 5))
         layer = FlattenLayer(layer)
-        '''
-        layer = Lipshitz_Layer(layer, 1024)
-        layer = Lipshitz_Layer(layer, 1024)
-        layer = Lipshitz_Layer(layer, 1024)
-        layer = Lipshitz_Layer(layer,101,nonlinearity=None)
 
     print ("Discriminator output:", layer.output_shape)
     return layer
@@ -105,7 +100,7 @@ def main(num_epochs=200,batch_norm=True):
     rescale_discriminator = theano.function([],updates=discriminator.rescale)
 
     gen_fn = theano.function([random_var], 
-        tbox(lasagne.layers.get_output(generator, deterministic=True),0.0,1.0))
+        lasagne.layers.get_output(generator, deterministic=True))
 
     print("Starting training")
 
@@ -123,6 +118,7 @@ def main(num_epochs=200,batch_norm=True):
         print('fake score: %f' % get_fake_score(noise))
         print('max gradient: %f' % max_gradient())
 
+    return 0
     for epoch in range(num_epochs):
         # In each epoch, we do a full pass over the training data:
         generator_err = 0
