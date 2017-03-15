@@ -110,17 +110,17 @@ def main(num_epochs=200,batch_norm=True):
     gen_fn = theano.function([random_var], 
         lasagne.layers.get_output(generator, deterministic=True))
 
-    print("Starting training")
-
-    print("Pre-training Discriminator")
-    for batch in iterate_minibatches(train_x, train_y, 128):
-        inputs, targets = batch
-        noise = lasagne.utils.floatX(np.random.rand(128, 100))
-        current_dis_err=np.array(discriminator_train_fn(noise, inputs))
-        rescale_discriminator()
-
     for epoch in range(num_epochs):
-        # In each epoch, we do a full pass over the training data:
+        print("Pre-training Discriminator")
+        for batch in iterate_minibatches(train_x, train_y, 128):
+            inputs, targets = batch
+            noise = lasagne.utils.floatX(np.random.rand(len(inputs), 100))
+            discriminator_train_fn(noise, inputs)
+            rescale_discriminator()
+        inputs=valid_x
+        noise = lasagne.utils.floatX(np.random.rand(len(inputs), 100))
+        print("score: %f" % (get_real_score(inputs)-get_fake_score(noise)))
+        print("Starting Epoch %d" % epoch)
         generator_err = 0
         discriminator_err = 0
         train_batches = 0
