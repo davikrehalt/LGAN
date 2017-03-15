@@ -1,10 +1,11 @@
 from __future__ import print_function,division
+import time
 import numpy as np
 import theano
 import theano.tensor as T
 import lasagne
+from ops import tmax,tmin,tbox
 from load_data import load_mnist
-import time
 
 def iterate_minibatches(inputs, targets, batchsize):
     for start_idx in range(0, len(inputs) - batchsize + 1, batchsize):
@@ -26,7 +27,7 @@ def build_generator(input_var=None,use_batch_norm=True):
         layer = Subpixel_Layer(layer, 32, (3,3), 2)
         layer = Subpixel_Layer(layer, 16, (3,3), 2)
         layer = Subpixel_Layer(layer, 8, (3,3), 2)
-        layer = LipConvLayer(layer,1,(9,9),init=1)
+        layer = LipConvLayer(layer,1,(9,9),init=1,nonlinearity=sigmoid)
         layer = ReshapeLayer(layer, (-1, 784))
     print ("Generator output:", layer.output_shape)
     return layer
@@ -36,22 +37,29 @@ def build_discriminator(input_var=None,use_batch_norm=True):
                                 FlattenLayer,batch_norm)
     from layers import Lipshitz_Layer,LipConvLayer
     layer = InputLayer(shape=(None, 784),input_var=input_var)
-    layer = ReshapeLayer(layer, (-1, 1, 28, 28))
     if use_batch_norm:
         raise NotImplementedError
     else:
-        layer = LipConvLayer(layer,32, (5, 5), init=1)
-        layer = LipConvLayer(layer,32, (5, 5), init=1)
-        layer = LipConvLayer(layer,32, (5, 5), init=1)
+        '''
+        layer = ReshapeLayer(layer, (-1, 1, 28, 28))
+        layer = LipConvLayer(layer,128, (5, 5))
+        layer = LipConvLayer(layer,64, (5, 5))
+        layer = LipConvLayer(layer,32, (5, 5))
         layer = FlattenLayer(layer)
+        '''
         layer = Lipshitz_Layer(layer, 1024)
-        layer = Lipshitz_Layer(layer,1,nonlinearity=None)
+        layer = Lipshitz_Layer(layer, 1024)
+        layer = Lipshitz_Layer(layer, 1024)
+        layer = Lipshitz_Layer(layer,101,nonlinearity=None)
 
     print ("Discriminator output:", layer.output_shape)
     return layer
 
 
 def main(num_epochs=200,batch_norm=True):
+
+    import matplotlib.pyplot as plt
+    from PIL import Image
     print('Loading data')
     datasets = load_mnist()
 
@@ -65,19 +73,24 @@ def main(num_epochs=200,batch_norm=True):
     print("Building model")
     generator = build_generator(random_var,batch_norm)
     discriminator = build_discriminator(input_var,batch_norm)
+    max_gradient=theano.function([],discriminator.max_gradient)
 
-    real_out = lasagne.layers.get_output(discriminator)
+    real_out = lasagne.layers.get_output(discriminator)[:,0]
     fake_out = lasagne.layers.get_output(discriminator,
             lasagne.layers.get_output(generator))
+    fake_out_score=fake_out[:,0]
     
-    generator_loss = fake_out.mean()
-    discriminator_loss = real_out.mean()-fake_out.mean()
+    mse_loss=T.mean((fake_out[:,1:]-random_var)**2)
+    generator_loss = fake_out_score.mean()+0.0*mse_loss
+    discriminator_loss = real_out.mean()-fake_out_score.mean()+(
+        0.0*mse_loss+1.0*discriminator.max_gradient)
     
     generator_params = lasagne.layers.get_all_params(generator, trainable=True)
     discriminator_params = lasagne.layers.get_all_params(discriminator, trainable=True)
 
-    generator_updates = lasagne.updates.rmsprop(generator_loss, generator_params)
-    discriminator_updates = lasagne.updates.rmsprop(discriminator_loss, discriminator_params)
+    generator_updates = lasagne.updates.sgd(generator_loss, generator_params,learning_rate=0.005)
+    discriminator_updates = lasagne.updates.sgd(discriminator_loss, discriminator_params,learning_rate=0.05)
+
     print("Compiling functions")
     generator_train_fn = theano.function([random_var],
                                generator_loss,
@@ -85,11 +98,31 @@ def main(num_epochs=200,batch_norm=True):
     discriminator_train_fn = theano.function([random_var, input_var],
                                discriminator_loss,
                                updates=discriminator_updates)
+    get_real_score = theano.function([input_var],
+                               real_out.mean())
+    get_fake_score = theano.function([random_var],
+                               fake_out_score.mean())
+    rescale_discriminator = theano.function([],updates=discriminator.rescale)
 
     gen_fn = theano.function([random_var], 
-        lasagne.layers.get_output(generator, deterministic=True))
+        tbox(lasagne.layers.get_output(generator, deterministic=True),0.0,1.0))
 
-    print("Starting training...")
+    print("Starting training")
+
+    print("Training Discriminator")
+    for batch in iterate_minibatches(train_x, train_y, 128):
+        inputs, targets = batch
+        noise = lasagne.utils.floatX(np.random.rand(128, 100))
+        current_dis_err=np.array(discriminator_train_fn(noise, inputs))
+        print('discriminator: %f' % current_dis_err)
+        print('real score: %f' % get_real_score(inputs))
+        print('fake score: %f' % get_fake_score(noise))
+        print('max gradient: %f' % max_gradient())
+        rescale_discriminator()
+        print('real score: %f' % get_real_score(inputs))
+        print('fake score: %f' % get_fake_score(noise))
+        print('max gradient: %f' % max_gradient())
+
     for epoch in range(num_epochs):
         # In each epoch, we do a full pass over the training data:
         generator_err = 0
@@ -99,8 +132,19 @@ def main(num_epochs=200,batch_norm=True):
         for batch in iterate_minibatches(train_x, train_y, 128):
             inputs, targets = batch
             noise = lasagne.utils.floatX(np.random.rand(len(inputs), 100))
-            generator_err += np.array(generator_train_fn(noise))
-            discriminator_err += np.array(discriminator_train_fn(noise, inputs))
+            current_dis_err=np.array(discriminator_train_fn(noise, inputs))
+            print('discriminator: %f' % current_dis_err)
+            discriminator_err += current_dis_err
+            print('real score: %f' % get_real_score(inputs))
+            print('fake score: %f' % get_fake_score(noise))
+            print('max gradient: %f' % max_gradient())
+            rescale_discriminator()
+            print('real score: %f' % get_real_score(inputs))
+            print('fake score: %f' % get_fake_score(noise))
+            print('max gradient: %f' % max_gradient())
+            current_gen_err=np.array(generator_train_fn(noise))
+            print('generator: %f' % current_gen_err)
+            generator_err += current_gen_err
             train_batches += 1
 
         # Then we print the results for this epoch:
@@ -110,13 +154,14 @@ def main(num_epochs=200,batch_norm=True):
         print("  discriminator loss:\t\t{}".format(discriminator_err / train_batches))
 
         # And finally, we plot some generated data
-        samples = gen_fn(lasagne.utils.floatX(np.random.rand(42, 100)))
-        import matplotlib.pyplot as plt
-        plt.imsave('mnist_samples.png',
-                   (samples.reshape(6, 7, 28, 28)
-                           .transpose(0, 2, 1, 3)
-                           .reshape(6*28, 7*28)),
-                   cmap='gray')
+        samples = 255*gen_fn(lasagne.utils.floatX(np.random.rand(20, 100)))
+        print(samples.shape)
+        for i in range(20):
+            array=np.array(samples[i])
+            array=array.reshape((28,28))
+            im=Image.fromarray(array).convert('L')
+            im.save('mnist_'+str(i)+'.png')
+        print('Images saved')
 
     # Optionally, you could now dump the network weights to a file like this:
     #np.savez('mnist_gen.npz', *lasagne.layers.get_all_param_values(generator))

@@ -64,7 +64,7 @@ def main(model='standard',n_epochs=100):
     loss = loss.mean()
 
     params = lasagne.layers.get_all_params(network, trainable=True)
-    updates = lasagne.updates.adam(loss, params)
+    updates = lasagne.updates.sgd(loss, params,learning_rate=0.005)
 
     test_prediction = lasagne.layers.get_output(network, deterministic=True)
     test_loss = lasagne.objectives.categorical_crossentropy(

@@ -167,6 +167,12 @@ class Subpixel_Layer(lasagne.layers.Layer):
         self.b = self.add_param(b,self.bias_shape)
         self.pre_gradient_norms=T.sum(abs(self.W),axis=(2,3,4))
         self.gradient_norms=tmax(self.pre_gradient_norms,1.0)
+        self.rescale_W = self.W / self.gradient_norms.dimshuffle(0,1,'x','x','x')
+        try:
+            self.rescale=self.input_layer.rescale
+        except AttributeError:
+            self.rescale=[]
+        self.rescale.append((self.W,self.rescale_W))
         try:
             self.max_gradient=self.input_layer.max_gradient
         except AttributeError:
