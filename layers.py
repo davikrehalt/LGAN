@@ -3,11 +3,13 @@ import numpy as np
 import theano
 import theano.tensor as T
 import lasagne
+from lasagne.layers import Layer
 from theano.tensor.nnet import conv2d
 from ops import tmax,tmin,tbox
 
 class FlattenLayer(Layer):
     #Copied from Source but added rescale and max_gradient
+    #Copied on March 15,2017
     """
     A layer that flattens its input. The leading ``outdim-1`` dimensions of
     the output will have the same shape as the input. The remaining dimensions
@@ -51,6 +53,7 @@ class FlattenLayer(Layer):
 
 
 class ReshapeLayer(Layer):
+    #Copied from Source but added rescale and max_gradient
     """
     A layer reshaping its input tensor to another tensor of the same total
     number of elements.
@@ -181,7 +184,7 @@ class ReshapeLayer(Layer):
         # Everything else is handled by Theano
         return input.reshape(tuple(output_shape))
 
-class Lipshitz_Layer(lasagne.layers.Layer):
+class Lipshitz_Layer(Layer):
     def __init__(self, incoming, n_out, W=None, b=None,init=0,nonlinearity=None,**kwargs):
         super(Lipshitz_Layer,self).__init__(incoming,**kwargs)
         if nonlinearity is None:
@@ -228,7 +231,7 @@ class Lipshitz_Layer(lasagne.layers.Layer):
     def get_output_shape_for(self,input_shape):
         return (input_shape[0],self.n_out)
 
-class LipConvLayer(lasagne.layers.Layer):
+class LipConvLayer(Layer):
     def __init__(self,incoming,n_out,filter_size,W=None,b=None,init=0,nonlinearity=None,**kwargs):
         #shape =(
         #        height(0),width(1),
@@ -299,7 +302,7 @@ class LipConvLayer(lasagne.layers.Layer):
                 self.shape[0]-self.shape[2]+1,
                 self.shape[1]-self.shape[3]+1)
 
-class Subpixel_Layer(lasagne.layers.Layer):
+class Subpixel_Layer(Layer):
     def __init__(self,incoming,n_out,filter_size,multiplier,W=None,b=None,init=1,nonlinearity=None,**kwargs):
         #shape =(
         #        height(0),width(1)

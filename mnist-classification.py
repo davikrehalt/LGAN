@@ -27,8 +27,8 @@ def build_standard_cnn(input_var):
     return network
 
 def build_maxout_cnn(input_var):
-    from lasagne.layers import InputLayer,ReshapeLayer, FlattenLayer
-    from layers import Lipshitz_Layer,LipConvLayer
+    from lasagne.layers import InputLayer
+    from layers import Lipshitz_Layer,LipConvLayer,ReshapeLayer,FlattenLayer
     network = InputLayer(shape=(None, 784),input_var=input_var)
     network = ReshapeLayer(network, (-1, 1, 28, 28))
     network = LipConvLayer(network,32, (5, 5), init=1)
