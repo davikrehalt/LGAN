@@ -174,7 +174,7 @@ class Subpixel_Layer(lasagne.layers.Layer):
         self.max_gradient*=T.max(self.pre_gradient_norms)
 
     def get_output_for(self,input,**kwargs):
-        image_shape  = [input.shape[0],self.shape[5],self.shape[0],self.shape[1]]
+        image_shape  = [None,self.shape[5],self.shape[0],self.shape[1]]
         output_shape = [input.shape[0],self.shape[7],
                         self.shape[4]*(self.shape[0]-self.shape[2]+1),
                         self.shape[4]*(self.shape[1]-self.shape[3]+1)]

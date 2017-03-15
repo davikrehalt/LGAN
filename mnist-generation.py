@@ -20,7 +20,7 @@ def build_generator(input_var=None,use_batch_norm=True):
     if use_batch_norm:
         raise NotImplementedError
     else:
-        layer = Lipshitz_Layer(layer, 128*4*4,init=1)
+        layer = Lipshitz_Layer(layer, 128*6*6,init=1)
         layer = ReshapeLayer(layer, (-1, 128, 6, 6))
         layer = Subpixel_Layer(layer, 64, (3,3), 2)
         layer = Subpixel_Layer(layer, 32, (3,3), 2)
@@ -77,7 +77,7 @@ def main(num_epochs=200,batch_norm=True):
     discriminator_params = lasagne.layers.get_all_params(discriminator, trainable=True)
 
     generator_updates = lasagne.updates.rmsprop(generator_loss, generator_params)
-    discriminator.updates = lasagne.updates.rmsprop(discriminator_loss, discriminator_params)
+    discriminator_updates = lasagne.updates.rmsprop(discriminator_loss, discriminator_params)
     print("Compiling functions")
     generator_train_fn = theano.function([random_var],
                                generator_loss,
