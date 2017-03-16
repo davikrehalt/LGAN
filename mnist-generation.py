@@ -21,6 +21,7 @@ def build_generator(input_var=None,use_batch_norm=True):
     if use_batch_norm:
         raise NotImplementedError
     else:
+        layer = Lipshitz_Layer(layer, 4096,init=1)
         layer = Lipshitz_Layer(layer, 128*6*6,init=1)
         layer = ReshapeLayer(layer, (-1, 128, 6, 6))
         layer = Subpixel_Layer(layer, 64, (3,3), 2)
@@ -43,10 +44,13 @@ def build_discriminator(input_var=None,use_batch_norm=True):
         raise NotImplementedError
     else:
         layer = ReshapeLayer(layer, (-1, 1, 28, 28))
-        layer = LipConvLayer(layer,128, (5, 5))
-        layer = LipConvLayer(layer,64, (5, 5))
         layer = LipConvLayer(layer,32, (5, 5))
+        layer = LipConvLayer(layer,32, (5, 5))
+        layer = LipConvLayer(layer,64, (5, 5))
+        layer = LipConvLayer(layer,64, (5, 5))
+        layer = LipConvLayer(layer,128, (5, 5))
         layer = FlattenLayer(layer)
+        layer = Lipshitz_Layer(layer,1024)
         layer = Lipshitz_Layer(layer,1)
 
     print ("Discriminator output:", layer.output_shape)
@@ -92,7 +96,7 @@ def main(num_epochs=200,batch_norm=True):
     generator_params = lasagne.layers.get_all_params(generator, trainable=True)
     discriminator_params = lasagne.layers.get_all_params(discriminator, trainable=True)
 
-    generator_updates = lasagne.updates.sgd(generator_loss, generator_params,learning_rate=0.005)
+    generator_updates = lasagne.updates.sgd(generator_loss, generator_params,learning_rate=0.01)
     discriminator_updates = lasagne.updates.sgd(discriminator_loss, discriminator_params,learning_rate=0.05)
 
     print("Compiling functions")
