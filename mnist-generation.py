@@ -126,7 +126,7 @@ def main(num_epochs=200,batch_norm=True):
             noise = lasagne.utils.floatX(np.random.rand(len(inputs), 100))
             discriminator_err += get_real_score(inputs)-get_fake_score(noise)
             valid_batches += 1
-        print("score: %f" % discriminator_err/valid_batches) 
+        print("score: %f" % (discriminator_err/valid_batches)) 
         print("Starting Epoch %d" % epoch)
         generator_err = 0
         discriminator_err = 0
