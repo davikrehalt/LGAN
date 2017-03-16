@@ -21,9 +21,11 @@ def build_generator(input_var=None,use_batch_norm=True):
     if use_batch_norm:
         raise NotImplementedError
     else:
-        layer = Lipshitz_Layer(layer, 256*12*12,init=1)
-        layer = ReshapeLayer(layer, (-1, 256, 12, 12))
+        layer = Lipshitz_Layer(layer, 256*6*6,init=1)
+        layer = ReshapeLayer(layer, (-1, 256, 6, 6))
+        layer = Subpixel_Layer(layer, 256, (3,3), 2)
         layer = Subpixel_Layer(layer, 128, (3,3), 2)
+        layer = Subpixel_Layer(layer, 64, (3,3), 2)
         layer = Subpixel_Layer(layer, 64, (3,3), 2)
         layer = LipConvLayer(layer,1,(9,9),init=1,
 nonlinearity=lasagne.nonlinearities.sigmoid)
@@ -117,10 +119,14 @@ def main(num_epochs=200,batch_norm=True):
             noise = lasagne.utils.floatX(np.random.rand(len(inputs), 100))
             discriminator_train_fn(noise, inputs)
             rescale_discriminator()
-            #print(get_real_score(inputs)-get_fake_score(noise))
-        inputs=valid_x
-        noise = lasagne.utils.floatX(np.random.rand(len(inputs), 100))
-        print("score: %f" % (get_real_score(inputs)-get_fake_score(noise)))
+        discriminator_err = 0
+        valid_batches = 0
+        for batch in iterate_minibatches(valid_x, valid_y, 128):
+            inputs, targets = batch
+            noise = lasagne.utils.floatX(np.random.rand(len(inputs), 100))
+            discriminator_err += get_real_score(inputs)-get_fake_score(noise)
+            valid_batches += 1
+        print("score: %f" % discriminator_err/valid_batches) 
         print("Starting Epoch %d" % epoch)
         generator_err = 0
         discriminator_err = 0
