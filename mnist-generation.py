@@ -21,15 +21,12 @@ def build_generator(input_var=None,use_batch_norm=True):
     if use_batch_norm:
         raise NotImplementedError
     else:
-        layer = Lipshitz_Layer(layer, 1024,init=1)
-        layer = Lipshitz_Layer(layer, 128*6*6,init=1)
-        layer = ReshapeLayer(layer, (-1, 128, 6, 6))
+        layer = Lipshitz_Layer(layer, 256*12*12,init=1)
+        layer = ReshapeLayer(layer, (-1, 256, 12, 12))
+        layer = Subpixel_Layer(layer, 128, (3,3), 2)
         layer = Subpixel_Layer(layer, 64, (3,3), 2)
-        layer = Subpixel_Layer(layer, 32, (3,3), 2)
-        layer = Subpixel_Layer(layer, 16, (3,3), 2)
-        layer = Subpixel_Layer(layer, 8, (3,3), 2)
         layer = LipConvLayer(layer,1,(9,9),init=1,
-            nonlinearity=lasagne.nonlinearities.sigmoid)
+nonlinearity=lasagne.nonlinearities.sigmoid)
         layer = ReshapeLayer(layer, (-1, 784))
     print("Generator output:", layer.output_shape)
     print("Number of parameters:", lasagne.layers.count_params(layer)) 
