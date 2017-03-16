@@ -21,7 +21,7 @@ def build_generator(input_var=None,use_batch_norm=True):
     if use_batch_norm:
         raise NotImplementedError
     else:
-        layer = Lipshitz_Layer(layer, 4096,init=1)
+        layer = Lipshitz_Layer(layer, 1024,init=1)
         layer = Lipshitz_Layer(layer, 128*6*6,init=1)
         layer = ReshapeLayer(layer, (-1, 128, 6, 6))
         layer = Subpixel_Layer(layer, 64, (3,3), 2)
@@ -31,7 +31,8 @@ def build_generator(input_var=None,use_batch_norm=True):
         layer = LipConvLayer(layer,1,(9,9),init=1,
             nonlinearity=lasagne.nonlinearities.sigmoid)
         layer = ReshapeLayer(layer, (-1, 784))
-    print ("Generator output:", layer.output_shape)
+    print("Generator output:", layer.output_shape)
+    print("Number of parameters:", lasagne.layers.count_params(layer)) 
     return layer
 
 def build_discriminator(input_var=None,use_batch_norm=True):
@@ -44,16 +45,14 @@ def build_discriminator(input_var=None,use_batch_norm=True):
         raise NotImplementedError
     else:
         layer = ReshapeLayer(layer, (-1, 1, 28, 28))
+        layer = LipConvLayer(layer,16, (5, 5))
         layer = LipConvLayer(layer,32, (5, 5))
-        layer = LipConvLayer(layer,32, (5, 5))
-        layer = LipConvLayer(layer,64, (5, 5))
-        layer = LipConvLayer(layer,64, (5, 5))
-        layer = LipConvLayer(layer,128, (5, 5))
         layer = FlattenLayer(layer)
         layer = Lipshitz_Layer(layer,1024)
         layer = Lipshitz_Layer(layer,1)
 
     print ("Discriminator output:", layer.output_shape)
+    print("Number of parameters:", lasagne.layers.count_params(layer)) 
     return layer
 
 
@@ -97,7 +96,7 @@ def main(num_epochs=200,batch_norm=True):
     discriminator_params = lasagne.layers.get_all_params(discriminator, trainable=True)
 
     generator_updates = lasagne.updates.sgd(generator_loss, generator_params,learning_rate=0.01)
-    discriminator_updates = lasagne.updates.sgd(discriminator_loss, discriminator_params,learning_rate=0.05)
+    discriminator_updates = lasagne.updates.sgd(discriminator_loss, discriminator_params,learning_rate=0.1)
 
     print("Compiling functions")
     generator_train_fn = theano.function([random_var],
@@ -121,6 +120,7 @@ def main(num_epochs=200,batch_norm=True):
             noise = lasagne.utils.floatX(np.random.rand(len(inputs), 100))
             discriminator_train_fn(noise, inputs)
             rescale_discriminator()
+            #print(get_real_score(inputs)-get_fake_score(noise))
         inputs=valid_x
         noise = lasagne.utils.floatX(np.random.rand(len(inputs), 100))
         print("score: %f" % (get_real_score(inputs)-get_fake_score(noise)))
