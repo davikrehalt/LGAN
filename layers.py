@@ -185,13 +185,12 @@ class ReshapeLayer(Layer):
         return input.reshape(tuple(output_shape))
 
 class Lipshitz_Layer(Layer):
-    def __init__(self, incoming, n_out, W=None, b=None,init=0,nonlinearity=None,**kwargs):
+    def __init__(self, incoming, n_out,n_max=2,W=None, b=None,init=0,nonlinearity=None,**kwargs):
         super(Lipshitz_Layer,self).__init__(incoming,**kwargs)
         if nonlinearity is None:
             self.nonlinearity = lasagne.nonlinearities.identity
         else:
             self.nonlinearity = nonlinearity
-        n_max=2
         n_in=self.input_shape[1]
         self.n_out=n_out
         self.n_params=n_max*n_out*(1+n_in)

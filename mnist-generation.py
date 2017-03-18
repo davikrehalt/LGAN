@@ -17,17 +17,15 @@ def build_generator(input_var=None,use_batch_norm=True):
     from lasagne.layers import InputLayer,batch_norm
     from layers import (Lipshitz_Layer,LipConvLayer,Subpixel_Layer
         ,ReshapeLayer, FlattenLayer)
-    layer = InputLayer(shape=(None, 100), input_var=input_var)
+    layer = InputLayer(shape=(None, 10), input_var=input_var)
     if use_batch_norm:
         raise NotImplementedError
     else:
-        layer = Lipshitz_Layer(layer, 256*6*6,init=1)
-        layer = ReshapeLayer(layer, (-1, 256, 6, 6))
+        layer = Lipshitz_Layer(layer, 512*7*7,init=1)
+        layer = ReshapeLayer(layer, (-1, 512, 7, 7))
         layer = Subpixel_Layer(layer, 256, (3,3), 2)
         layer = Subpixel_Layer(layer, 128, (3,3), 2)
-        layer = Subpixel_Layer(layer, 64, (3,3), 2)
-        layer = Subpixel_Layer(layer, 64, (3,3), 2)
-        layer = LipConvLayer(layer,1,(9,9),init=1,
+        layer = Subpixel_Layer(layer, 64, (3,3), 2,
 nonlinearity=lasagne.nonlinearities.sigmoid)
         layer = ReshapeLayer(layer, (-1, 784))
     print("Generator output:", layer.output_shape)
@@ -46,9 +44,11 @@ def build_discriminator(input_var=None,use_batch_norm=True):
         layer = ReshapeLayer(layer, (-1, 1, 28, 28))
         layer = LipConvLayer(layer,16, (5, 5))
         layer = LipConvLayer(layer,32, (5, 5))
+        layer = LipConvLayer(layer,64, (5, 5))
+        layer = LipConvLayer(layer,128, (5, 5))
         layer = FlattenLayer(layer)
         layer = Lipshitz_Layer(layer,1024)
-        layer = Lipshitz_Layer(layer,1)
+        layer = Lipshitz_Layer(layer,1,n_max=10)
 
     print ("Discriminator output:", layer.output_shape)
     print("Number of parameters:", lasagne.layers.count_params(layer)) 
@@ -56,9 +56,9 @@ def build_discriminator(input_var=None,use_batch_norm=True):
 
 
 def main(num_epochs=200,batch_norm=True):
-
     import matplotlib.pyplot as plt
     from PIL import Image
+
     print('Loading data')
     datasets = load_mnist()
 
@@ -78,19 +78,9 @@ def main(num_epochs=200,batch_norm=True):
     fake_out = lasagne.layers.get_output(discriminator,
             lasagne.layers.get_output(generator))
     
-    generator_loss = fake_out.mean()
-    discriminator_loss = real_out.mean()-fake_out.mean()
+    generator_loss = T.mean(fake_out**2)
+    discriminator_loss = T.mean((1.0-real_out)**2+fake_out**2)
     
-    '''
-    real_out = lasagne.layers.get_output(discriminator)[:,0]
-    fake_out = lasagne.layers.get_output(discriminator,
-            lasagne.layers.get_output(generator))
-    fake_out_score=fake_out[:,0]
-    mse_loss=T.mean((fake_out[:,1:]-random_var)**2)
-    generator_loss = fake_out_score.mean()+0.0*mse_loss
-    discriminator_loss = real_out.mean()-fake_out_score.mean()+(
-        0.0*mse_loss+1.0*discriminator.max_gradient)
-    '''
     generator_params = lasagne.layers.get_all_params(generator, trainable=True)
     discriminator_params = lasagne.layers.get_all_params(discriminator, trainable=True)
 
@@ -99,7 +89,6 @@ def main(num_epochs=200,batch_norm=True):
 
     print("Compiling functions")
     generator_train_fn = theano.function([random_var],
-                               fake_out.mean(),
                                updates=generator_updates)
     discriminator_train_fn = theano.function([random_var, input_var],
                                updates=discriminator_updates)
@@ -112,45 +101,45 @@ def main(num_epochs=200,batch_norm=True):
     gen_fn = theano.function([random_var], 
         lasagne.layers.get_output(generator, deterministic=True))
 
+    print("Training")
+    batch_size=128
+    noise_size=10
+    discrim_train=5
+    print("Pre-training Discriminator")
+    for batch in iterate_minibatches(train_x, train_y, batch_size):
+        inputs, targets = batch
+        noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
+        discriminator_train_fn(noise, inputs)
+        rescale_discriminator()
     for epoch in range(num_epochs):
-        print("Pre-training Discriminator")
-        for batch in iterate_minibatches(train_x, train_y, 128):
-            inputs, targets = batch
-            noise = lasagne.utils.floatX(np.random.rand(len(inputs), 100))
-            discriminator_train_fn(noise, inputs)
-            rescale_discriminator()
-        discriminator_err = 0
+        real_score=0.0
+        fake_score=0.0
         valid_batches = 0
-        for batch in iterate_minibatches(valid_x, valid_y, 128):
+        for batch in iterate_minibatches(valid_x, valid_y, batch_size):
             inputs, targets = batch
-            noise = lasagne.utils.floatX(np.random.rand(len(inputs), 100))
-            discriminator_err += get_real_score(inputs)-get_fake_score(noise)
+            noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
+            real_score += get_real_score(inputs)
+            fake_score += get_fake_score(noise)
             valid_batches += 1
-        print("score: %f" % (discriminator_err/valid_batches)) 
+        print("real score: %f" % (real_score/valid_batches)) 
+        print("fake score: %f" % (fake_score/valid_batches)) 
+
         print("Starting Epoch %d" % epoch)
-        generator_err = 0
-        discriminator_err = 0
-        train_batches = 0
         start_time = time.time()
-        for batch in iterate_minibatches(train_x, train_y, 128):
+        for batch in iterate_minibatches(train_x, train_y, batch_size):
             inputs, targets = batch
-            noise = lasagne.utils.floatX(np.random.rand(len(inputs), 100))
-            discriminator_train_fn(noise, inputs)
-            rescale_discriminator()
-            discriminator_err += get_real_score(inputs)-get_fake_score(noise)
-            current_gen_err=np.array(generator_train_fn(noise))
-            generator_err += current_gen_err
-            train_batches += 1
+            for _ in range(discrim_train):
+                noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
+                discriminator_train_fn(noise, inputs)
+                rescale_discriminator()
+            generator_train_fn(noise)
 
         # Then we print the results for this epoch:
         print("Epoch {} of {} took {:.3f}s".format(
-            epoch + 1, num_epochs, time.time() - start_time))
-        print("  generator loss:\t\t{}".format(generator_err / train_batches))
-        print("  discriminator loss:\t\t{}".format(discriminator_err / train_batches))
+            epoch, num_epochs, time.time() - start_time))
 
         # And finally, we plot some generated data
         samples = 255*gen_fn(lasagne.utils.floatX(np.random.rand(20, 100)))
-        print(samples.shape)
         for i in range(20):
             array=np.array(samples[i])
             array=array.reshape((28,28))
