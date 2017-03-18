@@ -46,6 +46,8 @@ def build_discriminator(input_var=None,use_batch_norm=True):
         layer = LipConvLayer(layer,32, (5, 5))
         layer = LipConvLayer(layer,64, (5, 5))
         layer = LipConvLayer(layer,128, (5, 5))
+        layer = LipConvLayer(layer,256, (5, 5))
+        layer = LipConvLayer(layer,512, (5, 5))
         layer = FlattenLayer(layer)
         layer = Lipshitz_Layer(layer,1024)
         layer = Lipshitz_Layer(layer,1,n_max=10)
@@ -85,7 +87,7 @@ def main(num_epochs=200,batch_norm=True):
     discriminator_params = lasagne.layers.get_all_params(discriminator, trainable=True)
 
     generator_updates = lasagne.updates.sgd(generator_loss, generator_params,learning_rate=0.01)
-    discriminator_updates = lasagne.updates.sgd(discriminator_loss, discriminator_params,learning_rate=0.1)
+    discriminator_updates = lasagne.updates.rmsprop(discriminator_loss, discriminator_params,learning_rate=0.01)
 
     print("Compiling functions")
     generator_train_fn = theano.function([random_var],
@@ -111,6 +113,8 @@ def main(num_epochs=200,batch_norm=True):
         noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
         discriminator_train_fn(noise, inputs)
         rescale_discriminator()
+        
+    print("Pre-training Completed")
     for epoch in range(num_epochs):
         real_score=0.0
         fake_score=0.0
