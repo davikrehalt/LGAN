@@ -85,8 +85,8 @@ def main(num_epochs=200,batch_norm=True):
     generator_params = lasagne.layers.get_all_params(generator, trainable=True)
     discriminator_params = lasagne.layers.get_all_params(discriminator, trainable=True)
 
-    generator_updates = lasagne.updates.sgd(generator_loss, generator_params,learning_rate=0.01)
-    discriminator_updates = lasagne.updates.sgd(discriminator_loss, discriminator_params,learning_rate=0.1)
+    generator_updates = lasagne.updates.rmsprop(generator_loss, generator_params,learning_rate=0.05)
+    discriminator_updates = lasagne.updates.rmsprop(discriminator_loss, discriminator_params,learning_rate=0.1)
 
     print("Compiling functions")
     generator_train_fn = theano.function([random_var],
@@ -108,6 +108,7 @@ def main(num_epochs=200,batch_norm=True):
         noise = lasagne.utils.floatX(np.random.rand(len(inputs), noise_size))
         discriminator_train_fn(noise, inputs)
         rescale_discriminator()
+    print("Training")
     for epoch in range(num_epochs):
         real_sum = 0
         fake_sum = 0
@@ -131,11 +132,10 @@ def main(num_epochs=200,batch_norm=True):
 
         # Then we print the results for this epoch:
         print("Epoch {} of {} took {:.3f}s".format(
-            epoch + 1, num_epochs, time.time() - start_time))
+            epoch, num_epochs, time.time() - start_time))
 
         # And finally, we plot some generated data
         samples = 255*gen_fn(lasagne.utils.floatX(np.random.rand(20, noise_size)))
-        print(samples.shape)
         for i in range(20):
             array=np.array(samples[i])
             array=array.reshape((28,28))
