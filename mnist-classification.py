@@ -31,9 +31,10 @@ def build_maxout_cnn(input_var):
     from layers import Lipshitz_Layer,LipConvLayer,ReshapeLayer,FlattenLayer
     network = InputLayer(shape=(None, 784),input_var=input_var)
     network = ReshapeLayer(network, (-1, 1, 28, 28))
+    network = LipConvLayer(network,16, (5, 5), init=1)
     network = LipConvLayer(network,32, (5, 5), init=1)
-    network = LipConvLayer(network,32, (5, 5), init=1)
-    network = LipConvLayer(network,32, (5, 5), init=1)
+    network = LipConvLayer(network,64, (5, 5), init=1)
+    network = LipConvLayer(network,128, (5, 5), init=1)
     network = FlattenLayer(network)
     network = Lipshitz_Layer(network, 256, init=1)
     network = Lipshitz_Layer(network, 10, init=1,
