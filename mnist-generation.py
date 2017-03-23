@@ -60,6 +60,7 @@ def main(num_epochs=200,batch_norm=True):
     
     batch_size=128
     noise_size=10
+    discrim_step=5
     print('Loading data')
     datasets = load_mnist()
 
@@ -80,13 +81,13 @@ def main(num_epochs=200,batch_norm=True):
             lasagne.layers.get_output(generator))
     
     generator_loss = fake_out.mean()
-    discriminator_loss = real_out.mean()-fake_out.mean()
+    discriminator_loss = ((real_out)**2).mean()+((1.0-fake_out)**2).mean()
     
     generator_params = lasagne.layers.get_all_params(generator, trainable=True)
     discriminator_params = lasagne.layers.get_all_params(discriminator, trainable=True)
 
     generator_updates = lasagne.updates.rmsprop(generator_loss, generator_params,learning_rate=0.05)
-    discriminator_updates = lasagne.updates.rmsprop(discriminator_loss, discriminator_params,learning_rate=0.1)
+    discriminator_updates = lasagne.updates.rmsprop(discriminator_loss, discriminator_params,learning_rate=0.05)
 
     print("Compiling functions")
     generator_train_fn = theano.function([random_var],
@@ -125,9 +126,11 @@ def main(num_epochs=200,batch_norm=True):
         start_time = time.time()
         for batch in iterate_minibatches(train_x, train_y, batch_size):
             inputs, targets = batch
+            for _ in range(discrim_step):
+                noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
+                discriminator_train_fn(noise, inputs)
+                rescale_discriminator()
             noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
-            discriminator_train_fn(noise, inputs)
-            rescale_discriminator()
             generator_train_fn(noise)
 
         # Then we print the results for this epoch:
