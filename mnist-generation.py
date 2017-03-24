@@ -60,7 +60,6 @@ def build_discriminator(input_var=None,use_batch_norm=True):
 def main(num_epochs=200,batch_norm=True):
     import matplotlib.pyplot as plt
     from PIL import Image
-    num_pre_epochs=20
     batch_size=128
     noise_size=10
     discrim_step=1
@@ -84,7 +83,7 @@ def main(num_epochs=200,batch_norm=True):
             lasagne.layers.get_output(generator))
     
     generator_loss = fake_out.mean()
-    discriminator_loss = ((real_out)**2).mean()+((1.0-fake_out)**2).mean()
+    discriminator_loss = ((real_out)**2).mean()+((1.0-fake_out)**2).mean()+0.1*discriminator.norm
     
     generator_params = lasagne.layers.get_all_params(generator, trainable=True)
     discriminator_params = lasagne.layers.get_all_params(discriminator, trainable=True)
@@ -106,39 +105,14 @@ def main(num_epochs=200,batch_norm=True):
     get_norm = theano.function([],discriminator.norm)
     gen_fn = theano.function([random_var], 
         lasagne.layers.get_output(generator, deterministic=True))
-    print("Initial generator")
-    samples = 255*gen_fn(lasagne.utils.floatX(np.random.rand(20, noise_size)))
-    for i in range(20):
-        array=np.array(samples[i])
-        array=array.reshape((28,28))
-        im=Image.fromarray(array).convert('L')
-        im.save('mnist_'+str(i)+'.png')
-    print('Images saved')
+
     print("Pre-training Discriminator")
-    for epoch in range(num_pre_epochs):
-        real_sum = 0
-        fake_sum = 0
-        valid_batches = 0
-        for batch in iterate_minibatches(valid_x, valid_y, batch_size):
-            inputs, targets = batch
-            noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
-            real_sum += get_real_score(inputs)
-            fake_sum += get_fake_score(noise)
-            valid_batches += 1
-        print("max gradient: %f" % get_max_gradient())
-        print("norm: %f" % get_norm())
-        print("real score: %f" % (real_sum/valid_batches)) 
-        print("fake score: %f" % (fake_sum/valid_batches)) 
-        print("Starting Epoch %d" % epoch)
-        start_time = time.time()
-        for batch in iterate_minibatches(train_x, train_y, batch_size):
-            inputs, targets = batch
-            noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
-            discriminator_train_fn(noise, inputs)
-            rescale_discriminator()
-        # Then we print the results for this epoch:
-        print("Epoch {} of {} took {:.3f}s".format(
-            epoch, num_epochs, time.time() - start_time))
+    for batch in iterate_minibatches(train_x, train_y, batch_size):
+        inputs, targets = batch
+        noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
+        discriminator_train_fn(noise, inputs)
+    print("Pretraining took {:.3f}s".format(
+        epoch, num_epochs, time.time() - start_time))
 
     print("Training")
     for epoch in range(num_epochs):
