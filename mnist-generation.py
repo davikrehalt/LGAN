@@ -43,10 +43,12 @@ def build_discriminator(input_var=None,use_batch_norm=True):
         raise NotImplementedError
     else:
         layer = ReshapeLayer(layer, (-1, 1, 28, 28))
-        layer = LipConvLayer(layer,32, (5, 5))
-        layer = LipConvLayer(layer,64, (5, 5))
+        layer = LipConvLayer(layer,16, (5, 5),rescale=True)
+        layer = LipConvLayer(layer,32, (5, 5),rescale=True)
+        layer = LipConvLayer(layer,64, (5, 5),rescale=True)
+        layer = LipConvLayer(layer,128, (5, 5),rescale=True)
         layer = FlattenLayer(layer)
-        layer = Lipshitz_Layer(layer,512)
+        layer = Lipshitz_Layer(layer,512,rescale=True)
         layer = Lipshitz_Layer(layer,1)
 
     print ("Discriminator output:", layer.output_shape)
@@ -81,7 +83,7 @@ def main(num_epochs=200,batch_norm=True):
             lasagne.layers.get_output(generator))
     
     generator_loss = fake_out.mean()
-    discriminator_loss = ((real_out)**2).mean()+((1.0-fake_out)**2).mean()
+    discriminator_loss = ((real_out)**2).mean()+((1.0-fake_out)**2).mean()+0.0*discriminator.norm
     
     generator_params = lasagne.layers.get_all_params(generator, trainable=True)
     discriminator_params = lasagne.layers.get_all_params(discriminator, trainable=True)
