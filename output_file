@@ -1,0 +1,128 @@
+Loading data
+Loading MNIST
+Building model
+Generator output: (None, 784)
+Number of parameters: 913024
+Discriminator output: (None, 1)
+Number of parameters: 26320642
+Compiling functions
+Pre-training Discriminator
+Training
+real score: 0.505895
+fake score: 0.555660
+Starting Epoch 0
+Epoch 0 of 200 took 2226.565s
+Images saved
+real score: 0.609120
+fake score: 0.609397
+Starting Epoch 1
+Epoch 1 of 200 took 2224.893s
+Images saved
+real score: 0.469137
+fake score: 0.469136
+Starting Epoch 2
+Epoch 2 of 200 took 2224.790s
+Images saved
+real score: 0.469150
+fake score: 0.469150
+Starting Epoch 3
+Epoch 3 of 200 took 2224.518s
+Images saved
+real score: 0.469148
+fake score: 0.469148
+Starting Epoch 4
+Epoch 4 of 200 took 2224.019s
+Images saved
+real score: 0.469149
+fake score: 0.469149
+Starting Epoch 5
+Epoch 5 of 200 took 2222.762s
+Images saved
+real score: 0.469142
+fake score: 0.469142
+Starting Epoch 6
+Epoch 6 of 200 took 2221.271s
+Images saved
+real score: 0.469147
+fake score: 0.469147
+Starting Epoch 7
+Epoch 7 of 200 took 2222.401s
+Images saved
+real score: 0.469142
+fake score: 0.469142
+Starting Epoch 8
+Epoch 8 of 200 took 2221.120s
+Images saved
+real score: 0.469146
+fake score: 0.469146
+Starting Epoch 9
+Epoch 9 of 200 took 2219.545s
+Images saved
+real score: 0.469141
+fake score: 0.469141
+Starting Epoch 10
+Epoch 10 of 200 took 2220.672s
+Images saved
+real score: 0.469142
+fake score: 0.469142
+Starting Epoch 11
+Epoch 11 of 200 took 2222.977s
+Images saved
+real score: 0.469143
+fake score: 0.469143
+Starting Epoch 12
+Epoch 12 of 200 took 2224.636s
+Images saved
+real score: 0.469142
+fake score: 0.469142
+Starting Epoch 13
+Epoch 13 of 200 took 2225.407s
+Images saved
+real score: 0.469142
+fake score: 0.469142
+Starting Epoch 14
+Epoch 14 of 200 took 2224.995s
+Images saved
+real score: 0.469141
+fake score: 0.469141
+Starting Epoch 15
+Epoch 15 of 200 took 2224.493s
+Images saved
+real score: 0.469140
+fake score: 0.469140
+Starting Epoch 16
+Epoch 16 of 200 took 2224.695s
+Images saved
+real score: 0.469144
+fake score: 0.469144
+Starting Epoch 17
+Epoch 17 of 200 took 2223.799s
+Images saved
+real score: 0.469140
+fake score: 0.469140
+Starting Epoch 18
+Epoch 18 of 200 took 2221.763s
+Images saved
+real score: 0.469145
+fake score: 0.469145
+Starting Epoch 19
+Epoch 19 of 200 took 2224.648s
+Images saved
+real score: 0.469139
+fake score: 0.469139
+Starting Epoch 20
+Epoch 20 of 200 took 2224.510s
+Images saved
+real score: 0.469145
+fake score: 0.469144
+Starting Epoch 21
+Epoch 21 of 200 took 2222.058s
+Images saved
+real score: 0.469140
+fake score: 0.469140
+Starting Epoch 22
+Epoch 22 of 200 took 2217.008s
+Images saved
+real score: 0.469146
+fake score: 0.469146
+Starting Epoch 23
