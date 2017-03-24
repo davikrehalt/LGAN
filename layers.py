@@ -37,6 +37,10 @@ class FlattenLayer(Layer):
             self.max_gradient=self.input_layer.max_gradient
         except AttributeError:
             self.max_gradient=1.0
+        try:
+            self.norm=self.input_layer.norm
+        except AttributeError:
+            self.norm=0.0
 
     def get_output_shape_for(self, input_shape):
         to_flatten = input_shape[self.outdim - 1:]
@@ -121,6 +125,10 @@ class ReshapeLayer(Layer):
             self.max_gradient=self.input_layer.max_gradient
         except AttributeError:
             self.max_gradient=1.0
+        try:
+            self.norm=self.input_layer.norm
+        except AttributeError:
+            self.norm=0.0
 
     def get_output_shape_for(self, input_shape, **kwargs):
         # Initialize output shape from shape specification
@@ -222,11 +230,15 @@ class Lipshitz_Layer(Layer):
             self.rescale=self.input_layer.rescale
         except AttributeError:
             self.rescale=[]
+        try:
+            self.norm=self.input_layer.norm
+        except AttributeError:
+            self.norm=0.0
         if rescale:
             self.rescale_W = self.W / self.gradient_norms.dimshuffle(0,'x',1)
             self.rescale.append((self.W,self.rescale_W))
         else:
-            self.norm=(self.gradient_norms).mean()
+            self.norm+=(self.gradient_norms).mean()
 
     def get_output_for(self,input,**kwargs):
         return self.nonlinearity((T.dot(input,self.W) + self.b).max(axis=1))
@@ -283,12 +295,16 @@ class LipConvLayer(Layer):
             self.max_gradient=self.input_layer.max_gradient
         except AttributeError:
             self.max_gradient=1.0
+        try:
+            self.norm=self.input_layer.norm
+        except AttributeError:
+            self.norm=0.0
         self.max_gradient*=T.max(self.pre_gradient_norms)
         if rescale:
             self.rescale_W = self.W / self.gradient_norms.dimshuffle(0,1,'x','x','x')
             self.rescale.append((self.W,self.rescale_W))
         else:
-            self.norm=(self.gradient_norms).mean()
+            self.norm+=(self.gradient_norms).mean()
 
     def get_output_for(self,input,**kwargs):
         intermediate=[]
@@ -358,12 +374,16 @@ class Subpixel_Layer(Layer):
             self.max_gradient=self.input_layer.max_gradient
         except AttributeError:
             self.max_gradient=1.0
+        try:
+            self.norm=self.input_layer.norm
+        except AttributeError:
+            self.norm=0.0
         self.max_gradient*=T.max(self.pre_gradient_norms)
         if rescale:
             self.rescale.append((self.W,self.rescale_W))
             self.rescale_W = self.W / self.gradient_norms.dimshuffle(0,1,'x','x','x')
         else:
-            self.norm=(self.gradient_norms).mean()
+            self.norm+=(self.gradient_norms).mean()
 
     def get_output_for(self,input,**kwargs):
         image_shape  = [None,self.shape[5],self.shape[0],self.shape[1]]

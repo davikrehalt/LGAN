@@ -43,12 +43,12 @@ def build_discriminator(input_var=None,use_batch_norm=True):
         raise NotImplementedError
     else:
         layer = ReshapeLayer(layer, (-1, 1, 28, 28))
-        layer = LipConvLayer(layer,16, (5, 5),rescale=True)
-        layer = LipConvLayer(layer,32, (5, 5),rescale=True)
-        layer = LipConvLayer(layer,64, (5, 5),rescale=True)
-        layer = LipConvLayer(layer,128, (5, 5),rescale=True)
+        layer = LipConvLayer(layer,16, (5, 5))
+        layer = LipConvLayer(layer,32, (5, 5))
+        layer = LipConvLayer(layer,64, (5, 5))
+        layer = LipConvLayer(layer,128, (5, 5))
         layer = FlattenLayer(layer)
-        layer = Lipshitz_Layer(layer,512,rescale=True)
+        layer = Lipshitz_Layer(layer,512)
         layer = Lipshitz_Layer(layer,1)
 
     print ("Discriminator output:", layer.output_shape)
@@ -62,7 +62,7 @@ def main(num_epochs=200,batch_norm=True):
     
     batch_size=128
     noise_size=10
-    discrim_step=5
+    discrim_step=1
     print('Loading data')
     datasets = load_mnist()
 
@@ -101,6 +101,7 @@ def main(num_epochs=200,batch_norm=True):
     get_fake_score = theano.function([random_var],
                                fake_out.mean())
     rescale_discriminator = theano.function([],updates=discriminator.rescale)
+    get_max_gradient = theano.function([],discriminator.max_gradient)
 
     gen_fn = theano.function([random_var], 
         lasagne.layers.get_output(generator, deterministic=True))
@@ -122,6 +123,7 @@ def main(num_epochs=200,batch_norm=True):
             real_sum += get_real_score(inputs)
             fake_sum += get_fake_score(noise)
             valid_batches += 1
+        print("max gradient: %f" % get_max_gradient())
         print("real score: %f" % (real_sum/valid_batches)) 
         print("fake score: %f" % (fake_sum/valid_batches)) 
         print("Starting Epoch %d" % epoch)
