@@ -22,11 +22,12 @@ def build_generator(input_var=None,use_batch_norm=True):
     if use_batch_norm:
         raise NotImplementedError
     else:
-        layer = Lipshitz_Layer(layer, 128*7*7,init=1)
-        layer = ReshapeLayer(layer, (-1, 128, 7, 7))
+        layer = Lipshitz_Layer(layer, 512*7*7,init=1)
+        layer = ReshapeLayer(layer, (-1, 512, 7, 7))
+        layer = Subpixel_Layer(layer, 256, (3,3), 2)
+        layer = Subpixel_Layer(layer, 128, (3,3), 2)
         layer = Subpixel_Layer(layer, 64, (3,3), 2)
-        layer = Subpixel_Layer(layer, 32, (3,3), 2)
-        layer = Subpixel_Layer(layer, 16, (3,3), 2,
+        layer = LipConvLayer(layer, 1, (1,1),
             nonlinearity=lasagne.nonlinearities.sigmoid)
         layer = ReshapeLayer(layer, (-1, 784))
     print("Generator output:", layer.output_shape)
@@ -62,7 +63,7 @@ def main(num_epochs=200,batch_norm=True):
     from PIL import Image
     batch_size=128
     noise_size=10
-    discrim_step=1
+
     print('Loading data')
     datasets = load_mnist()
 
@@ -106,15 +107,6 @@ def main(num_epochs=200,batch_norm=True):
     gen_fn = theano.function([random_var], 
         lasagne.layers.get_output(generator, deterministic=True))
 
-    print("Pre-training Discriminator")
-    start_time = time.time()
-    for batch in iterate_minibatches(train_x, train_y, batch_size):
-        inputs, targets = batch
-        noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
-        discriminator_train_fn(noise, inputs)
-    print("Pretraining took {:.3f}s".format(
-        time.time() - start_time))
-
     print("Training")
     for epoch in range(num_epochs):
         real_sum = 0
@@ -126,20 +118,22 @@ def main(num_epochs=200,batch_norm=True):
             real_sum += get_real_score(inputs)
             fake_sum += get_fake_score(noise)
             valid_batches += 1
+        real_score=real_sum/valid_batches
+        fake_score=fake_sum/valid_batches
+        balance=0.5*(real_score**2+(1.0-fake_score)**2)
         print("max gradient: %f" % get_max_gradient())
-        print("norm: %f" % get_norm())
-        print("real score: %f" % (real_sum/valid_batches)) 
-        print("fake score: %f" % (fake_sum/valid_batches)) 
+        print("real score: %f" % real_score) 
+        print("fake score: %f" % fake_score) 
+        print("balance: %f" % balance) 
         print("Starting Epoch %d" % epoch)
         start_time = time.time()
         for batch in iterate_minibatches(train_x, train_y, batch_size):
             inputs, targets = batch
-            for _ in range(discrim_step):
-                noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
-                discriminator_train_fn(noise, inputs)
-                rescale_discriminator()
             noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
-            generator_train_fn(noise)
+            if np.random.random()<balance:
+                generator_train_fn(noise)
+            else: 
+                discriminator_train_fn(noise, inputs)
 
         # Then we print the results for this epoch:
         print("Epoch {} of {} took {:.3f}s".format(
