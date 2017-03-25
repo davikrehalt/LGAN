@@ -112,7 +112,7 @@ def main(num_epochs=200,batch_norm=True):
         noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
         discriminator_train_fn(noise, inputs)
     print("Pretraining took {:.3f}s".format(
-        epoch, num_epochs, time.time() - start_time))
+        time.time() - start_time))
 
     print("Training")
     for epoch in range(num_epochs):
