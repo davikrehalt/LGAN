@@ -131,9 +131,9 @@ def main(num_epochs=200,batch_norm=True):
             inputs, targets = batch
             noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
             if np.random.random()<balance:
-                generator_train_fn(noise)
-            else: 
                 discriminator_train_fn(noise, inputs)
+            else: 
+                generator_train_fn(noise)
 
         # Then we print the results for this epoch:
         print("Epoch {} of {} took {:.3f}s".format(
