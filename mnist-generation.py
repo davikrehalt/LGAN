@@ -107,6 +107,7 @@ def main(num_epochs=200,batch_norm=True):
         lasagne.layers.get_output(generator, deterministic=True))
 
     print("Pre-training Discriminator")
+    start_time = time.time()
     for batch in iterate_minibatches(train_x, train_y, batch_size):
         inputs, targets = batch
         noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
