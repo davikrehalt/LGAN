@@ -50,7 +50,7 @@ def build_discriminator(input_var=None,use_batch_norm=True):
         layer = LipConvLayer(layer,128, (5, 5))
         layer = FlattenLayer(layer)
         layer = Lipshitz_Layer(layer,512)
-        layer = Lipshitz_Layer(layer,1,
+        layer = Lipshitz_Layer(layer,1+10,
             nonlinearity=lasagne.nonlinearities.sigmoid)
 
     print ("Discriminator output:", layer.output_shape)
@@ -71,44 +71,49 @@ def main(num_epochs=200,batch_norm=True):
     valid_x, valid_y = datasets[1]
     test_x, test_y = datasets[2]
 
-    input_var = T.matrix('inputs')
-    random_var = T.matrix('random')
+    image_var = T.matrix('image')
+    representation_var = T.matrix('representation')
 
     print("Building model")
-    generator = build_generator(random_var,batch_norm)
-    discriminator = build_discriminator(input_var,batch_norm)
+    generator = build_generator(representation_var,batch_norm)
+    discriminator = build_discriminator(image_var,batch_norm)
     max_gradient=theano.function([],discriminator.max_gradient)
 
-    real_out = lasagne.layers.get_output(discriminator)
-    fake_out = lasagne.layers.get_output(discriminator,
-            lasagne.layers.get_output(generator))
+    real_out=lasagne.layers.get_output(discriminator)[:,0]
+    fake_out=lasagne.layers.get_output(discriminator,
+        lasagne.layers.get_output(generator))[:,0]
+    return_representation = lasagne.layers.get_output(discriminator,
+        lasagne.layers.get_output(generator))[:,1:]
+    return_image = lasagne.layers.get_output(generator,
+        lasagne.layers.get_output(discriminator)[:,1:])
+
+    reconstruction_loss = \
+        ((return_image-image_var)**2).mean()+ \
+        ((return_representation-representation_var)**2).mean()
     
-    generator_loss = fake_out.mean()
-    discriminator_loss = ((real_out)**2).mean()+((1.0-fake_out)**2).mean()+0.1*discriminator.norm
+    generator_loss = 0.8*reconstruction_loss+0.0*(fake_out**2).mean()
+    discriminator_loss = 0.8*reconstruction_loss+0.1*discriminator.norm+\
+        0.0*(real_out**2).mean()+0.0*((1.0-fake_out)**2).mean()
     
     generator_params = lasagne.layers.get_all_params(generator, trainable=True)
     discriminator_params = lasagne.layers.get_all_params(discriminator, trainable=True)
 
-    generator_updates = lasagne.updates.rmsprop(generator_loss, generator_params,learning_rate=0.05)
-    discriminator_updates = lasagne.updates.adam(discriminator_loss, discriminator_params)
+    generator_updates = lasagne.updates.sgd(generator_loss, generator_params,learning_rate=0.05)
+    discriminator_updates = lasagne.updates.sgd(discriminator_loss, discriminator_params,learning_rate=0.05)
 
     print("Compiling functions")
-    generator_train_fn = theano.function([random_var],
+    generator_train_fn = theano.function([representation_var,image_var],
                                updates=generator_updates)
-    discriminator_train_fn = theano.function([random_var, input_var],
+    discriminator_train_fn = theano.function([representation_var, image_var],
                                updates=discriminator_updates)
-    get_real_score = theano.function([input_var],
-                               real_out.mean())
-    get_fake_score = theano.function([random_var],
-                               fake_out.mean())
-    rescale_discriminator = theano.function([],updates=discriminator.rescale)
     get_max_gradient = theano.function([],discriminator.max_gradient)
-    get_norm = theano.function([],discriminator.norm)
-    gen_fn = theano.function([random_var], 
+    gen_fn = theano.function([representation_var], 
         lasagne.layers.get_output(generator, deterministic=True))
-
+    get_real_score = theano.function([image_var],real_out.mean())
+    get_fake_score = theano.function([representation_var],fake_out.mean())
     print("Training")
     for epoch in range(num_epochs):
+        '''
         real_sum = 0
         fake_sum = 0
         valid_batches = 0
@@ -121,19 +126,20 @@ def main(num_epochs=200,batch_norm=True):
         real_score=real_sum/valid_batches
         fake_score=fake_sum/valid_batches
         balance=0.5*(real_score**2+(1.0-fake_score)**2)
-        print("max gradient: %f" % get_max_gradient())
         print("real score: %f" % real_score) 
         print("fake score: %f" % fake_score) 
         print("balance: %f" % balance) 
+        '''
+        print("max gradient: %f" % get_max_gradient())
         print("Starting Epoch %d" % epoch)
         start_time = time.time()
         for batch in iterate_minibatches(train_x, train_y, batch_size):
             inputs, targets = batch
             noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
-            if np.random.random()<balance:
+            if np.random.random()<0.5:
                 discriminator_train_fn(noise, inputs)
             else: 
-                generator_train_fn(noise)
+                generator_train_fn(noise,inputs)
 
         # Then we print the results for this epoch:
         print("Epoch {} of {} took {:.3f}s".format(
