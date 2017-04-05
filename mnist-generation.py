@@ -27,7 +27,7 @@ def build_generator(input_var=None,use_batch_norm=True):
         layer = Subpixel_Layer(layer, 256, (3,3), 2)
         layer = Subpixel_Layer(layer, 128, (3,3), 2)
         layer = Subpixel_Layer(layer, 64, (3,3), 2)
-        layer = LipConvLayer(layer, 1, (1,1),
+        layer = LipConvLayer(layer, 1,(1,1),init=1,
             nonlinearity=lasagne.nonlinearities.sigmoid)
         layer = ReshapeLayer(layer, (-1, 784))
     print("Generator output:", layer.output_shape)
@@ -44,13 +44,13 @@ def build_discriminator(input_var=None,use_batch_norm=True):
         raise NotImplementedError
     else:
         layer = ReshapeLayer(layer, (-1, 1, 28, 28))
-        layer = LipConvLayer(layer,16, (5, 5))
-        layer = LipConvLayer(layer,32, (5, 5))
-        layer = LipConvLayer(layer,64, (5, 5))
-        layer = LipConvLayer(layer,128, (5, 5))
+        layer = LipConvLayer(layer,16, (5, 5),init=1)
+        layer = LipConvLayer(layer,32, (5, 5),init=1)
+        layer = LipConvLayer(layer,64, (5, 5),init=1)
+        layer = LipConvLayer(layer,128, (5, 5),init=1)
         layer = FlattenLayer(layer)
-        layer = Lipshitz_Layer(layer,512)
-        layer = Lipshitz_Layer(layer,1+10,
+        layer = Lipshitz_Layer(layer,512,init=1)
+        layer = Lipshitz_Layer(layer,1+10,init=1,
             nonlinearity=lasagne.nonlinearities.sigmoid)
 
     print ("Discriminator output:", layer.output_shape)
@@ -92,12 +92,14 @@ def main(num_epochs=200,batch_norm=True):
     reconstruction_loss2 = ((return_representation-representation_var)**2).mean()
     reconstruction_loss = reconstruction_loss1+reconstruction_loss2
     
-    
     generator_loss = (fake_out**2).mean()
     discriminator_loss =(real_out**2).mean()+((1.0-fake_out)**2).mean()
     
     generator_params = lasagne.layers.get_all_params(generator, trainable=True)
     discriminator_params = lasagne.layers.get_all_params(discriminator, trainable=True)
+    total_params=generator_params+discriminator_params
+
+    autoencoder_updates=lasagne.updates.adam(reconstruction_loss1, total_params)
 
     generator_updates1 = lasagne.updates.sgd(reconstruction_loss, generator_params,learning_rate=0.05)
     discriminator_updates1 = lasagne.updates.sgd(reconstruction_loss, discriminator_params,learning_rate=0.05)
@@ -106,6 +108,8 @@ def main(num_epochs=200,batch_norm=True):
     discriminator_updates2 = lasagne.updates.sgd(discriminator_loss, discriminator_params,learning_rate=0.05)
 
     print("Compiling functions")
+    autoencoder_train= theano.function([image_var],reconstruction_loss1,
+                               updates=autoencoder_updates)
     generator_train_fn1 = theano.function([representation_var,image_var],reconstruction_loss,
                                updates=generator_updates1)
     discriminator_train_fn1 = theano.function([representation_var, image_var],reconstruction_loss,
@@ -124,17 +128,15 @@ def main(num_epochs=200,batch_norm=True):
     for epoch in range(10):
         print("Starting Epoch %d" % epoch)
         start_time = time.time()
-        discrim_list=[]
+        auto_cost=[]
         for batch in iterate_minibatches(train_x, train_y, batch_size):
             inputs, targets = batch
-            noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
-            generator_train_fn1(noise,inputs)
-            discrim_list.append(discriminator_train_fn1(noise,inputs))
+            auto_cost.append(autoencoder_train(inputs))
 
         # Then we print the results for this epoch:
         print("Epoch {} of {} took {:.3f}s".format(
             epoch, num_epochs, time.time() - start_time))
-        print("reconstruction_loss: ",np.mean(discrim_list))
+        print("reconstruction_loss: ",np.mean(auto_cost))
 
         # And finally, we plot some generated data
         samples = 255*gen_fn(lasagne.utils.floatX(np.random.rand(20, noise_size)))
