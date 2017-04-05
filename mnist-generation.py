@@ -82,35 +82,68 @@ def main(num_epochs=200,batch_norm=True):
     real_out=lasagne.layers.get_output(discriminator)[:,0]
     fake_out=lasagne.layers.get_output(discriminator,
         lasagne.layers.get_output(generator))[:,0]
+
     return_representation = lasagne.layers.get_output(discriminator,
         lasagne.layers.get_output(generator))[:,1:]
     return_image = lasagne.layers.get_output(generator,
         lasagne.layers.get_output(discriminator)[:,1:])
 
-    reconstruction_loss = \
-        ((return_image-image_var)**2).mean()+ \
-        ((return_representation-representation_var)**2).mean()
+    reconstruction_loss1 = ((return_image-image_var)**2).mean()
+    reconstruction_loss2 = ((return_representation-representation_var)**2).mean()
+    reconstruction_loss = reconstruction_loss1+reconstruction_loss2
     
-    generator_loss = 0.8*reconstruction_loss+0.0*(fake_out**2).mean()
-    discriminator_loss = 0.8*reconstruction_loss+0.1*discriminator.norm+\
-        0.0*(real_out**2).mean()+0.0*((1.0-fake_out)**2).mean()
+    
+    generator_loss = (fake_out**2).mean()
+    discriminator_loss =(real_out**2).mean()+((1.0-fake_out)**2).mean()
     
     generator_params = lasagne.layers.get_all_params(generator, trainable=True)
     discriminator_params = lasagne.layers.get_all_params(discriminator, trainable=True)
 
-    generator_updates = lasagne.updates.sgd(generator_loss, generator_params,learning_rate=0.05)
-    discriminator_updates = lasagne.updates.sgd(discriminator_loss, discriminator_params,learning_rate=0.05)
+    generator_updates1 = lasagne.updates.sgd(reconstruction_loss, generator_params,learning_rate=0.05)
+    discriminator_updates1 = lasagne.updates.sgd(reconstruction_loss, discriminator_params,learning_rate=0.05)
+
+    generator_updates2 = lasagne.updates.sgd(generator_loss, generator_params,learning_rate=0.05)
+    discriminator_updates2 = lasagne.updates.sgd(discriminator_loss, discriminator_params,learning_rate=0.05)
 
     print("Compiling functions")
-    generator_train_fn = theano.function([representation_var,image_var],
-                               updates=generator_updates)
-    discriminator_train_fn = theano.function([representation_var, image_var],
-                               updates=discriminator_updates)
+    generator_train_fn1 = theano.function([representation_var,image_var],reconstruction_loss,
+                               updates=generator_updates1)
+    discriminator_train_fn1 = theano.function([representation_var, image_var],reconstruction_loss,
+                               updates=discriminator_updates1)
+    generator_train_fn2 = theano.function([representation_var],
+                               updates=generator_updates2)
+    discriminator_train_fn2 = theano.function([representation_var, image_var],
+                               updates=discriminator_updates2)
     get_max_gradient = theano.function([],discriminator.max_gradient)
     gen_fn = theano.function([representation_var], 
         lasagne.layers.get_output(generator, deterministic=True))
     get_real_score = theano.function([image_var],real_out.mean())
     get_fake_score = theano.function([representation_var],fake_out.mean())
+
+    print("Making autoencoder")
+    for epoch in range(10):
+        print("Starting Epoch %d" % epoch)
+        start_time = time.time()
+        discrim_list=[]
+        for batch in iterate_minibatches(train_x, train_y, batch_size):
+            inputs, targets = batch
+            noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
+            generator_train_fn1(noise,inputs)
+            discrim_list.append(discriminator_train_fn1(noise,inputs))
+
+        # Then we print the results for this epoch:
+        print("Epoch {} of {} took {:.3f}s".format(
+            epoch, num_epochs, time.time() - start_time))
+        print("reconstruction_loss: ",np.mean(discrim_list))
+
+        # And finally, we plot some generated data
+        samples = 255*gen_fn(lasagne.utils.floatX(np.random.rand(20, noise_size)))
+        for i in range(20):
+            array=np.array(samples[i])
+            array=array.reshape((28,28))
+            im=Image.fromarray(array).convert('L')
+            im.save('mnist_'+str(i)+'.png')
+        print('Images saved')
     print("Training")
     for epoch in range(num_epochs):
         '''
