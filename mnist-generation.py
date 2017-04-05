@@ -93,7 +93,7 @@ def main(num_epochs=200,batch_norm=True):
     reconstruction_loss = reconstruction_loss1+reconstruction_loss2
     
     generator_loss = (fake_out**2).mean()
-    discriminator_loss =(real_out**2).mean()+((1.0-fake_out)**2).mean()
+    discriminator_loss =(real_out**2).mean()+((1.0-fake_out)**2).mean()+0.1*discriminator.norm
     
     generator_params = lasagne.layers.get_all_params(generator, trainable=True)
     discriminator_params = lasagne.layers.get_all_params(discriminator, trainable=True)
@@ -101,23 +101,22 @@ def main(num_epochs=200,batch_norm=True):
 
     autoencoder_updates=lasagne.updates.adam(reconstruction_loss1, total_params)
 
-    generator_updates1 = lasagne.updates.sgd(reconstruction_loss, generator_params,learning_rate=0.05)
-    discriminator_updates1 = lasagne.updates.sgd(reconstruction_loss, discriminator_params,learning_rate=0.05)
+    doubleencoder_updates = lasagne.updates.adam(reconstruction_loss, total_params)
 
-    generator_updates2 = lasagne.updates.sgd(generator_loss, generator_params,learning_rate=0.05)
-    discriminator_updates2 = lasagne.updates.sgd(discriminator_loss, discriminator_params,learning_rate=0.05)
+    generator_updates = lasagne.updates.sgd(generator_loss, generator_params,learning_rate=0.05)
+    discriminator_updates = lasagne.updates.sgd(discriminator_loss, discriminator_params,learning_rate=0.05)
 
     print("Compiling functions")
     autoencoder_train= theano.function([image_var],reconstruction_loss1,
                                updates=autoencoder_updates)
-    generator_train_fn1 = theano.function([representation_var,image_var],reconstruction_loss,
-                               updates=generator_updates1)
-    discriminator_train_fn1 = theano.function([representation_var, image_var],reconstruction_loss,
-                               updates=discriminator_updates1)
-    generator_train_fn2 = theano.function([representation_var],
-                               updates=generator_updates2)
-    discriminator_train_fn2 = theano.function([representation_var, image_var],
-                               updates=discriminator_updates2)
+    doubleencoder_train = theano.function([representation_var,image_var],reconstruction_loss,
+                               updates=doubleencoder_updates)
+
+    generator_train_fn = theano.function([representation_var],
+                               updates=generator_updates)
+    discriminator_train_fn = theano.function([representation_var, image_var],
+                               updates=discriminator_updates)
+
     get_max_gradient = theano.function([],discriminator.max_gradient)
     gen_fn = theano.function([representation_var], 
         lasagne.layers.get_output(generator, deterministic=True))
@@ -136,7 +135,30 @@ def main(num_epochs=200,batch_norm=True):
         # Then we print the results for this epoch:
         print("Epoch {} of {} took {:.3f}s".format(
             epoch, num_epochs, time.time() - start_time))
-        print("reconstruction_loss: ",np.mean(auto_cost))
+        print("autoencoder loss: ",np.mean(auto_cost))
+
+        # And finally, we plot some generated data
+        samples = 255*gen_fn(lasagne.utils.floatX(np.random.rand(20, noise_size)))
+        for i in range(20):
+            array=np.array(samples[i])
+            array=array.reshape((28,28))
+            im=Image.fromarray(array).convert('L')
+            im.save('mnist_'+str(i)+'.png')
+        print('Images saved')
+    print("Making doubleencoder")
+    for epoch in range(10):
+        print("Starting Epoch %d" % epoch)
+        start_time = time.time()
+        double_cost=[]
+        for batch in iterate_minibatches(train_x, train_y, batch_size):
+            inputs, targets = batch
+            noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
+            double_cost.append(doubleencoder_train(noise,inputs))
+
+        # Then we print the results for this epoch:
+        print("Epoch {} of {} took {:.3f}s".format(
+            epoch, num_epochs, time.time() - start_time))
+        print("doubleencoder loss: ",np.mean(double_cost))
 
         # And finally, we plot some generated data
         samples = 255*gen_fn(lasagne.utils.floatX(np.random.rand(20, noise_size)))
@@ -148,7 +170,6 @@ def main(num_epochs=200,batch_norm=True):
         print('Images saved')
     print("Training")
     for epoch in range(num_epochs):
-        '''
         real_sum = 0
         fake_sum = 0
         valid_batches = 0
@@ -160,18 +181,15 @@ def main(num_epochs=200,batch_norm=True):
             valid_batches += 1
         real_score=real_sum/valid_batches
         fake_score=fake_sum/valid_batches
-        balance=0.5*(real_score**2+(1.0-fake_score)**2)
         print("real score: %f" % real_score) 
         print("fake score: %f" % fake_score) 
-        print("balance: %f" % balance) 
-        '''
         print("max gradient: %f" % get_max_gradient())
         print("Starting Epoch %d" % epoch)
         start_time = time.time()
         for batch in iterate_minibatches(train_x, train_y, batch_size):
             inputs, targets = batch
             noise = lasagne.utils.floatX(np.random.rand(batch_size, noise_size))
-            if np.random.random()<0.5:
+            if np.random.random()<0.2:
                 discriminator_train_fn(noise, inputs)
             else: 
                 generator_train_fn(noise,inputs)
