@@ -99,9 +99,9 @@ def main(num_epochs=200,batch_norm=True):
     discriminator_params = lasagne.layers.get_all_params(discriminator, trainable=True)
     total_params=generator_params+discriminator_params
 
-    autoencoder_updates=lasagne.updates.adam(reconstruction_loss1, total_params)
+    autoencoder_updates=lasagne.updates.rmsprop(reconstruction_loss1, total_params,learning_rate=0.05)
 
-    doubleencoder_updates = lasagne.updates.adam(reconstruction_loss, total_params)
+    doubleencoder_updates = lasagne.updates.rmsprop(reconstruction_loss, total_params,learning_rate=0.05)
 
     generator_updates = lasagne.updates.sgd(generator_loss, generator_params,learning_rate=0.05)
     discriminator_updates = lasagne.updates.sgd(discriminator_loss, discriminator_params,learning_rate=0.05)
